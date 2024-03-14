@@ -9,6 +9,21 @@ namespace EventHubSolution.BackendServer.Data.Entities
 {
     public class User : IdentityUser, IDateTracking
     {
+        public User()
+        {
+
+        }
+
+        public User(string id, string userName, string fullName, string email, string phoneNumber, DateTime dob)
+        {
+            Id = id;
+            UserName = userName;
+            FullName = fullName;
+            Email = email;
+            PhoneNumber = phoneNumber;
+            Dob = dob;
+        }
+
         [MaxLength(50)]
         [Required]
         public string FullName { get; set; }

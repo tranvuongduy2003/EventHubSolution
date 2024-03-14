@@ -6,9 +6,9 @@ namespace EventHubSolution.BackendServer.Services
     public class FileStorageService : IFileStorageService
     {
         private readonly ApplicationDbContext _db;
-        private readonly IAzureBlobService _fileService;
+        private readonly AzureBlobService _fileService;
 
-        public FileStorageService(ApplicationDbContext db, IAzureBlobService fileService)
+        public FileStorageService(ApplicationDbContext db, AzureBlobService fileService)
         {
             _db = db;
             _fileService = fileService;

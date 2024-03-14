@@ -1,4 +1,4 @@
-﻿namespace EventHubSolution.BackendServer.Constants
+﻿namespace EventHubSolution.ViewModels.Constants
 {
     public enum PageOrder
     {

@@ -6,7 +6,6 @@ namespace EventHubSolution.ViewModels.Systems
 {
     public class UserCreateRequest
     {
-
         public string Email { get; set; }
 
         public string PhoneNumber { get; set; }

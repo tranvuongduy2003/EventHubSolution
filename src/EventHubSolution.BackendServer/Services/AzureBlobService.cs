@@ -4,7 +4,7 @@ using EventHubSolution.ViewModels.Systems;
 
 namespace EventHubSolution.BackendServer.Services
 {
-    public class AzureBlobService : IAzureBlobService
+    public class AzureBlobService
     {
         private readonly IConfiguration _configuration;
         private readonly string _storageAccount;

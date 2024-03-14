@@ -75,10 +75,11 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddControllersWithViews().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<RoleCreateRequestValidator>());
 
 builder.Services.AddTransient<DbInitializer>();
-builder.Services.AddTransient<IAzureBlobService, AzureBlobService>();
-builder.Services.AddTransient<IFileStorageService, FileStorageService>();
 builder.Services.AddTransient<IEmailSender, EmailSenderService>();
 builder.Services.AddTransient<ISequenceService, SequenceService>();
+builder.Services.AddTransient<IFileStorageService, FileStorageService>();
+
+builder.Services.AddSingleton<AzureBlobService>();
 
 builder.Services.AddSwaggerGen(option =>
 {
