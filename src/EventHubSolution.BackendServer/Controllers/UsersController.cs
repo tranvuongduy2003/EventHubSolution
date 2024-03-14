@@ -90,25 +90,30 @@ namespace EventHubSolution.BackendServer.Controllers
                     .Take(filter.size).ToList();
             }
 
-            var userVms = users.Join(_db.FileStorages.DefaultIfEmpty(), u => u.AvatarId, f => f.Id, (u, f) => new UserVm
-            {
-                Id = u.Id,
-                UserName = u.UserName,
-                Email = u.Email,
-                PhoneNumber = u.PhoneNumber,
-                Dob = u.Dob,
-                FullName = u.FullName,
-                Gender = u.Gender,
-                Bio = u.Bio,
-                NumberOfCreatedEvents = u.NumberOfCreatedEvents,
-                NumberOfFavourites = u.NumberOfFavourites,
-                NumberOfFolloweds = u.NumberOfFolloweds,
-                NumberOfFollowers = u.NumberOfFollowers,
-                Status = u.Status,
-                Avatar = f.FilePath,
-                CreatedAt = u.CreatedAt,
-                UpdatedAt = u.UpdatedAt
-            }).ToList();
+            var userVms = (from u in users
+                           join f in _db.FileStorages
+                           on u.AvatarId equals f.Id
+                           into UsersWithAvatar
+                           from uwa in UsersWithAvatar.DefaultIfEmpty()
+                           select new UserVm
+                           {
+                               Id = u.Id,
+                               UserName = u.UserName,
+                               Email = u.Email,
+                               PhoneNumber = u.PhoneNumber,
+                               Dob = u.Dob,
+                               FullName = u.FullName,
+                               Gender = u.Gender,
+                               Bio = u.Bio,
+                               NumberOfCreatedEvents = u.NumberOfCreatedEvents,
+                               NumberOfFavourites = u.NumberOfFavourites,
+                               NumberOfFolloweds = u.NumberOfFolloweds,
+                               NumberOfFollowers = u.NumberOfFollowers,
+                               Status = u.Status,
+                               Avatar = uwa?.FilePath,
+                               CreatedAt = u.CreatedAt,
+                               UpdatedAt = u.UpdatedAt
+                           }).ToList();
 
             var pagination = new Pagination<UserVm>
             {
@@ -219,7 +224,26 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result.Succeeded)
             {
-                return Ok();
+                var userVm = new UserVm()
+                {
+                    Id = user.Id,
+                    UserName = user.UserName,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Dob = user.Dob,
+                    FullName = user.FullName,
+                    Gender = user.Gender,
+                    Bio = user.Bio,
+                    NumberOfCreatedEvents = user.NumberOfCreatedEvents,
+                    NumberOfFavourites = user.NumberOfFavourites,
+                    NumberOfFolloweds = user.NumberOfFolloweds,
+                    NumberOfFollowers = user.NumberOfFollowers,
+                    Status = user.Status,
+                    CreatedAt = user.CreatedAt,
+                    UpdatedAt = user.UpdatedAt
+                };
+
+                return Ok(userVm);
             }
             return BadRequest(new ApiBadRequestResponse(result));
         }
