@@ -22,4 +22,12 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Contents\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EventHubSolution.ViewModels\EventHubSolution.ViewModels.csproj" />
+  </ItemGroup>
+
 </Project>
