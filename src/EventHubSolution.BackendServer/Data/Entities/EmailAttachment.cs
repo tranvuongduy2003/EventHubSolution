@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
@@ -20,6 +21,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public virtual EmailContent EmailContent { get; set; } = null!;
 
         [ForeignKey("AttachmentId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual FileStorage Attachment { get; set; } = null!;
     }
 }

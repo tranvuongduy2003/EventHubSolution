@@ -1,27 +1,25 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
 {
-    [Table("FavouriteEvents")]
-    public class FavouriteEvent
+    [Table("EventCategories")]
+    public class EventCategory
     {
         [MaxLength(50)]
         [Column(TypeName = "varchar(50)")]
         [Required]
-        public string UserId { get; set; }
+        public string CategoryId { get; set; }
 
         [MaxLength(50)]
         [Column(TypeName = "varchar(50)")]
         [Required]
         public string EventId { get; set; }
 
-        [ForeignKey("UserId")]
-        public virtual User User { get; set; } = null!;
+        [ForeignKey("CategoryId")]
+        public virtual Category Label { get; set; } = null!;
 
         [ForeignKey("EventId")]
-        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;
     }
 }

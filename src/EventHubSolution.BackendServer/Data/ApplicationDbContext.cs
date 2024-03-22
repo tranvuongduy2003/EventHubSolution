@@ -34,27 +34,24 @@ namespace EventHubSolution.BackendServer.Data
 
             builder.Entity<Permission>()
                        .HasKey(x => new { x.RoleId, x.FunctionId, x.CommandId });
-
             builder.Entity<CommandInFunction>()
                        .HasKey(x => new { x.CommandId, x.FunctionId });
-
             builder.Entity<EmailAttachment>()
                        .HasKey(x => new { x.AttachmentId, x.EmailContentId });
-
             builder.Entity<LabelInEvent>()
                       .HasKey(x => new { x.LabelId, x.EventId });
-
             builder.Entity<UserFollower>()
                       .HasKey(x => new { x.FollowerId, x.FollowedId });
-
+            builder.Entity<UserFollower>()
+                      .HasKey(x => new { x.FollowerId, x.FollowedId });
             builder.Entity<FavouriteEvent>()
                       .HasKey(x => new { x.EventId, x.UserId });
-
             builder.Entity<LabelInUser>()
                       .HasKey(x => new { x.LabelId, x.UserId });
-
             builder.Entity<EmailAttachment>()
                       .HasKey(x => new { x.AttachmentId, x.EmailContentId });
+            builder.Entity<EventCategory>()
+                      .HasKey(x => new { x.CategoryId, x.EventId });
         }
 
         public DbSet<User> Users { set; get; }
@@ -79,5 +76,6 @@ namespace EventHubSolution.BackendServer.Data
         public DbSet<Ticket> Tickets { set; get; }
         public DbSet<TicketType> TicketTypes { set; get; }
         public DbSet<UserFollower> UserFollowers { set; get; }
+        public DbSet<EventCategory> EventCategories { set; get; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
@@ -26,6 +27,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public virtual Event Event { get; set; } = null!;
 
         [ForeignKey("ImageId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual FileStorage Image { get; set; } = null!;
     }
 }

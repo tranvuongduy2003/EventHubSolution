@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <UserSecretsId>a36b17e3-ab27-442a-9e4e-4d47ac9ce733</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +14,9 @@
 	  <PackageReference Include="Dapper" Version="2.1.35" />
 	  <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
 	  <PackageReference Include="IdentityServer4.AspNetIdentity" Version="4.1.2" />
+	  <PackageReference Include="MailKit" Version="4.4.0" />
+	  <PackageReference Include="Microsoft.AspNetCore.Authentication.Facebook" Version="8.0.3" />
+	  <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.3" />
 	  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.2" />
 	  <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid.EntityFrameworkAdapter" Version="8.0.2" />
 	  <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.2" />
@@ -25,6 +29,8 @@
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 	  </PackageReference>
 	  <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="8.0.1" />
+	  <PackageReference Include="MimeKit" Version="4.4.0" />
+	  <PackageReference Include="NETCore.MailKit" Version="2.1.0" />
 	  <PackageReference Include="Serilog" Version="3.1.1" />
 	  <PackageReference Include="Serilog.AspNetCore" Version="8.0.1" />
 	  <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />

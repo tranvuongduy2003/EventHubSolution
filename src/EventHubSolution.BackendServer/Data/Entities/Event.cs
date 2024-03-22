@@ -1,5 +1,6 @@
 ﻿using EventHubSolution.BackendServer.Data.Interfaces;
 using EventHubSolution.ViewModels.Constants;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
@@ -39,15 +40,15 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string LocationId { get; set; }
 
         [Required]
+        [MaxLength(50)]
+        [Column(TypeName = "varchar(50)")]
+        public string EmailContentId { get; set; }
+
+        [Required]
         public DateTime StartTime { get; set; }
 
         [Required]
         public DateTime EndTime { get; set; }
-
-        [Required]
-        [MaxLength(50)]
-        [Column(TypeName = "varchar(50)")]
-        public string CategoryId { get; set; }
 
         [Range(0.0, 1.0)]
         public double Promotion { get; set; } = 0;
@@ -73,12 +74,13 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public virtual User Creator { get; set; } = null!;
 
         [ForeignKey("CoverImageId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual FileStorage CoverImage { get; set; } = null!;
 
         [ForeignKey("LocationId")]
         public virtual Location Location { get; set; } = null!;
 
-        [ForeignKey("CategoryId")]
-        public virtual Category Category { get; set; } = null!;
+        [ForeignKey("EmailContentId")]
+        public virtual EmailContent EmailContent { get; set; } = null!;
     }
 }

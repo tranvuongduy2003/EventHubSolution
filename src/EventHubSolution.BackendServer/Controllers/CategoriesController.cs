@@ -7,6 +7,7 @@ using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.Systems;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 
@@ -54,6 +55,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpGet]
         [ClaimRequirement(FunctionCode.CONTENT_CATEGORY, CommandCode.VIEW)]
+        [AllowAnonymous]
         public async Task<IActionResult> GetCategories([FromQuery] PaginationFilter filter)
         {
             var categories = _db.Categories.ToList();

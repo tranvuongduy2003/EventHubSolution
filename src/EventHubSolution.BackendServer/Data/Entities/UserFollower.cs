@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
@@ -17,9 +18,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string FollowedId { get; set; }
 
         [ForeignKey("FollowerId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Follower { get; set; } = null!;
 
         [ForeignKey("FollowedId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Followed { get; set; } = null!;
     }
 }

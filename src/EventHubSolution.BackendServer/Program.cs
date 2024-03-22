@@ -1,6 +1,8 @@
 using AutoMapper;
+using EventHubSolution.BackendServer.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
+using EventHubSolution.BackendServer.Extensions;
 using EventHubSolution.BackendServer.Extentions;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
@@ -8,11 +10,11 @@ using EventHubSolution.ViewModels.Systems;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using TicketManagement.Api.Services;
 
 var AppCors = "AppCors";
 
@@ -47,10 +49,15 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 // Add configs
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("ApiSettings:JwtOptions"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
 
 // 2.Setup identity
-builder.Services.AddIdentity<User, IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>();
+builder.Services.AddIdentity<User, IdentityRole>()
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddTokenProvider<DataProtectorTokenProvider<User>>(TokenProviders.GOOGLE)
+    .AddTokenProvider<DataProtectorTokenProvider<User>>(TokenProviders.FACEBOOK)
+    .AddDefaultTokenProviders();
 
 builder.Services.Configure<IdentityOptions>(options =>
 {
@@ -67,6 +74,17 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.User.RequireUniqueEmail = true;
 });
 
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromHours(8);
+});
+
+builder.Services.Configure<CookiePolicyOptions>(options =>
+ {
+     options.CheckConsentNeeded = context => true;
+     options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
+ });
+
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.SuppressModelStateInvalidFilter = true;
@@ -75,9 +93,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddControllersWithViews().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<RoleCreateRequestValidator>());
 
 builder.Services.AddTransient<DbInitializer>();
-builder.Services.AddTransient<IEmailSender, EmailSenderService>();
+builder.Services.AddTransient<IEmailService, EmailService>();
 builder.Services.AddTransient<ISequenceService, SequenceService>();
 builder.Services.AddTransient<IFileStorageService, FileStorageService>();
+builder.Services.AddTransient<ITokenService, TokenService>();
 
 builder.Services.AddSingleton<AzureBlobService>();
 
@@ -111,6 +130,8 @@ builder.AddAppAuthetication();
 
 var app = builder.Build();
 
+app.UseCors();
+
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -132,6 +153,8 @@ if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
 }
+
+app.UseErrorWrapping();
 
 app.UseStaticFiles();
 
