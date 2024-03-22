@@ -1,6 +1,6 @@
 ﻿namespace EventHubSolution.ViewModels.Contents
 {
-    public class EventCreateRequest
+    public class EventCreateRequestValidator
     {
     }
 }
