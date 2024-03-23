@@ -1,5 +1,4 @@
 ﻿using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.ViewModels.Systems;
 
 namespace EventHubSolution.ViewModels.Contents
 {
@@ -9,7 +8,7 @@ namespace EventHubSolution.ViewModels.Contents
 
         public string CreatorId { get; set; }
 
-        public UserVm Creator { get; set; }
+        public CreatorVm Creator { get; set; }
 
         public string CoverImage { get; set; }
 
