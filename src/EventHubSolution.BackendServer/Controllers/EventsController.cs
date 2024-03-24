@@ -4,9 +4,13 @@ using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
+using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
@@ -64,7 +68,7 @@ namespace EventHubSolution.BackendServer.Controllers
             _db.EmailContents.Add(emailContent);
             eventData.EmailContentId = emailContent.Id;
 
-            //TODO: Create email location
+            //TODO: Create event location
             var location = new Location()
             {
                 Id = Guid.NewGuid().ToString(),
@@ -115,50 +119,119 @@ namespace EventHubSolution.BackendServer.Controllers
             }
         }
 
-        //[HttpGet]
-        //[ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
-        //public async Task<IActionResult> GetEvents([FromQuery] PaginationFilter filter)
-        //{
-        //    var eventDatas = _db.Events.ToList();
-        //    if (filter.search != null)
-        //    {
-        //        eventDatas = eventDatas.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
-        //    }
+        [HttpGet]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
+        public async Task<IActionResult> GetEvents([FromQuery] PaginationFilter filter)
+        {
+            var eventDatas = _db.Events.ToList();
+            if (filter.search != null)
+            {
+                eventDatas = eventDatas.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
 
-        //    eventDatas = filter.order switch
-        //    {
-        //        PageOrder.ASC => eventDatas.OrderBy(c => c.SortOrder).ToList(),
-        //        PageOrder.DESC => eventDatas.OrderByDescending(c => c.SortOrder).ToList(),
-        //        _ => eventDatas
-        //    };
+            eventDatas = filter.order switch
+            {
+                PageOrder.ASC => eventDatas.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => eventDatas.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => eventDatas
+            };
 
-        //    var metadata = new Metadata(eventDatas.Count(), filter.page, filter.size, filter.takeAll);
+            var metadata = new Metadata(eventDatas.Count(), filter.page, filter.size, filter.takeAll);
 
-        //    if (filter.takeAll == false)
-        //    {
-        //        eventDatas = eventDatas.Skip((filter.page - 1) * filter.size)
-        //            .Take(filter.size).ToList();
-        //    }
+            var eventDataVms = eventDatas
+                    .Join(_db.FileStorages, _event => _event.CoverImageId, _fileStorage => _fileStorage.Id, (_event, _fileStorage) => new EventVm
+                    {
+                        Id = _event.Id,
+                        Name = _event.Name,
+                        Description = _event.Description,
+                        CoverImageId = _event.CoverImageId,
+                        CoverImage = _fileStorage.FilePath,
+                        CreatorId = _event.CreatorId,
+                        LocationId = _event.LocationId,
+                        StartTime = _event.StartTime,
+                        EndTime = _event.EndTime,
+                        NumberOfFavourites = _event.NumberOfFavourites,
+                        NumberOfShares = _event.NumberOfShares,
+                        NumberOfSoldTickets = _event.NumberOfSoldTickets,
+                        Promotion = _event.Promotion,
+                        Status = _event.Status,
+                        CreatedAt = _event.CreatedAt,
+                        UpdatedAt = _event.UpdatedAt
+                    })
+                    .Join(_userManager.Users, _eventVm => _eventVm.CreatorId, _user => _user.Id, (_eventVm, _user) =>
+                    {
+                        _eventVm.CreatorName = _user.UserName;
+                        return _eventVm;
+                    })
+                    .Join(_db.Locations, _eventVm => _eventVm.LocationId, _location => _location.Id, (_eventVm, _location) =>
+                    {
+                        _eventVm.LocationString = $"{_location.Street}, {_location.District}, {_location.City}";
+                        return _eventVm;
+                    })
+                    .Join(
+                        _db.EventCategories.Join(
+                            _db.Categories.Join(_db.FileStorages, _category => _category.IconImageId, _fileStorage => _fileStorage.Id, (_category, _fileStorage) => new CategoryVm
+                            {
+                                Id = _category.Id,
+                                Color = _category.Color,
+                                IconImage = _fileStorage.FilePath,
+                                Name = _category.Name,
+                                CreatedAt = _category.CreatedAt,
+                                UpdatedAt = _category.UpdatedAt,
+                            }).DefaultIfEmpty(),
+                            _eventCategory => _eventCategory.CategoryId,
+                            _categoryVm => _categoryVm.Id,
+                            (_eventCategory, _categoryVm) => new
+                            {
+                                EventId = _eventCategory.EventId,
+                                CategoryId = _categoryVm.Id,
+                                Color = _categoryVm.Color,
+                                IconImage = _categoryVm.IconImage,
+                                Name = _categoryVm.Name,
+                                CreatedAt = _categoryVm.CreatedAt,
+                                UpdatedAt = _categoryVm.UpdatedAt,
+                            }
+                        ),
+                        _eventVm => _eventVm.Id,
+                        _joinedEventCategory => _joinedEventCategory.EventId,
+                        (_eventVm, _joinedEventCategory) => new
+                        {
+                            _eventVm,
+                            _joinedEventCategory
+                        }
+                    )
+                    .GroupBy(joinedEvent => joinedEvent._eventVm)
+                    .Select(groupedEvent =>
+                    {
+                        var eventVm = groupedEvent.Key;
+                        eventVm.Categories = groupedEvent.Select(e => new CategoryVm
+                        {
+                            Id = e._joinedEventCategory.CategoryId,
+                            Color = e._joinedEventCategory.Color,
+                            Name = e._joinedEventCategory.Name,
+                            IconImage = e._joinedEventCategory.IconImage,
+                            CreatedAt = e._joinedEventCategory.CreatedAt,
+                            UpdatedAt = e._joinedEventCategory.UpdatedAt,
+                        }).ToList();
+                        return eventVm;
+                    })
+                    .ToList();
 
-        //    var eventDataVms = eventDatas.Select(f => new EventVm()
-        //    {
-        //        Id = f.Id,
-        //        Name = f.Name,
-        //        Url = f.Url,
-        //        SortOrder = f.SortOrder,
-        //        ParentId = f.ParentId,
-        //    }).ToList();
+            if (filter.takeAll == false)
+            {
+                eventDataVms = eventDataVms.Skip((filter.page - 1) * filter.size).Take(filter.size).ToList();
+            }
 
-        //    var pagination = new Pagination<EventVm>
-        //    {
-        //        Items = eventDataVms,
-        //        Metadata = metadata,
-        //    };
+            var pagination = new Pagination<EventVm>
+            {
+                Items = eventDataVms,
+                Metadata = metadata,
+            };
 
-        //    Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-        //    return Ok(pagination);
-        //}
+            return Ok(pagination);
+        }
 
         [HttpGet("{id}")]
         [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
@@ -289,54 +362,113 @@ namespace EventHubSolution.BackendServer.Controllers
             return Ok(eventDataVm);
         }
 
-        //[HttpPut("{id}")]
-        //[ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.UPDATE)]
-        //[ApiValidationFilter]
-        //public async Task<IActionResult> PutEvent(string id, [FromBody] EventCreateRequest request)
-        //{
-        //    var eventData = await _db.Events.FindAsync(id);
-        //    if (eventData == null)
-        //        return NotFound(new ApiNotFoundResponse(""));
+        [HttpPut("{id}")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.UPDATE)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> PutEvent(string id, [FromBody] EventCreateRequest request)
+        {
+            var eventData = await _db.Events.FindAsync(id);
+            if (eventData == null)
+                return NotFound(new ApiNotFoundResponse(""));
 
-        //    eventData.Name = eventData.Name;
-        //    eventData.Url = eventData.Url;
-        //    eventData.SortOrder = eventData.SortOrder;
-        //    eventData.ParentId = eventData.ParentId;
+            eventData.CreatorId = request.CreatorId;
+            eventData.Name = request.Name;
+            eventData.Description = request.Description;
+            eventData.StartTime = request.StartTime;
+            eventData.EndTime = request.EndTime;
+            eventData.Promotion = request.Promotion;
 
-        //    _db.Events.Update(eventData);
-        //    var result = await _db.SaveChangesAsync();
+            //TODO: Update cover image
+            FileStorage coverImageFileStorage = await _fileService.SaveFileToFileStorage(request.CoverImage);
+            eventData.CoverImageId = coverImageFileStorage.Id;
 
-        //    if (result > 0)
-        //    {
-        //        return NoContent();
-        //    }
-        //    return BadRequest(new ApiBadRequestResponse(""));
-        //}
+            //TODO: Update email content
+            var emailContent = await _db.EmailContents.FindAsync(eventData.EmailContentId);
+            emailContent.Content = request.EmailContent.Content;
+            _db.EmailContents.Update(emailContent);
+            //TODO: Update email attachments file
+            request.EmailContent.Attachments.ForEach(async attachment =>
+            {
+                FileStorage attachmentFileStorage = await _fileService.SaveFileToFileStorage(attachment);
+                var emailAttachment = await _db.EmailAttachments.FirstOrDefaultAsync(e => e.EmailContentId == emailContent.Id);
+                emailAttachment.AttachmentId = attachmentFileStorage.Id;
+                _db.EmailAttachments.Update(emailAttachment);
+            });
 
-        //[HttpDelete("{id}")]
-        //[ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.DELETE)]
-        //public async Task<IActionResult> DeleteEvent(string id)
-        //{
-        //    var eventData = await _db.Events.FindAsync(id);
-        //    if (eventData == null)
-        //        return NotFound(new ApiNotFoundResponse(""));
+            //TODO: Udpate event location
+            var location = await _db.Locations.FindAsync(eventData.LocationId);
+            location.Street = request.Location.Street;
+            location.District = request.Location.District;
+            location.City = request.Location.City;
+            location.LatitudeY = request.Location.LatitudeY;
+            location.LongitudeX = request.Location.LongitudeX;
+            _db.Locations.Update(location);
 
-        //    _db.Events.Remove(eventData);
-        //    var result = await _db.SaveChangesAsync();
+            //TODO: Update ticket types
+            request.TicketTypes.ForEach(async type =>
+            {
+                var ticketType = await _db.TicketTypes.FirstOrDefaultAsync(t => t.Name == type.Name);
+                ticketType.Name = type.Name;
+                ticketType.Price = type.Price;
+                ticketType.Quantity = type.Quantity;
+                _db.TicketTypes.Update(ticketType);
+            });
 
-        //    if (result > 0)
-        //    {
-        //        var eventDatavm = new EventVm()
-        //        {
-        //            Id = eventData.Id,
-        //            Name = eventData.Name,
-        //            Url = eventData.Url,
-        //            SortOrder = eventData.SortOrder,
-        //            ParentId = eventData.ParentId,
-        //        };
-        //        return Ok(eventDatavm);
-        //    }
-        //    return BadRequest(new ApiBadRequestResponse(""));
-        //}
+            //TODO: Update event categories
+            var eventCategories = _db.EventCategories.Where(e => e.EventId == eventData.Id);
+            _db.EventCategories.RemoveRange(eventCategories);
+            request.CategoryIds.ForEach(categoryId =>
+            {
+                var eventCategory = new EventCategory()
+                {
+                    CategoryId = categoryId,
+                    EventId = eventData.Id,
+                };
+                _db.EventCategories.Add(eventCategory);
+            });
+
+            _db.Events.Update(eventData);
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return NoContent();
+            }
+            return BadRequest(new ApiBadRequestResponse(""));
+        }
+
+        [HttpDelete("{id}")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.DELETE)]
+        public async Task<IActionResult> DeleteEvent(string id)
+        {
+            var eventData = await _db.Events.FindAsync(id);
+            if (eventData == null)
+                return NotFound(new ApiNotFoundResponse(""));
+
+            //TODO: Delete email content
+            var emailContent = await _db.EmailContents.FindAsync(eventData.EmailContentId);
+            _db.EmailContents.Remove(emailContent);
+
+            //TODO: Delete event location
+            var location = await _db.Locations.FindAsync(eventData.LocationId);
+            _db.Locations.Remove(location);
+
+            //TODO: Delete ticket types
+            var ticketTypes = _db.TicketTypes.Where(t => t.EventId == eventData.Id);
+            _db.TicketTypes.RemoveRange(ticketTypes);
+
+            //TODO: Delete event categories
+            var eventCategories = _db.EventCategories.Where(t => t.EventId == eventData.Id);
+            _db.EventCategories.RemoveRange(eventCategories);
+
+            _db.Events.Remove(eventData);
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return Ok();
+            }
+            return BadRequest(new ApiBadRequestResponse(""));
+        }
     }
 }
