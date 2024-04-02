@@ -12,6 +12,6 @@
 
         public int? NumberOfSoldTickets { get; set; } = 0;
 
-        public decimal Price { get; set; }
+        public long Price { get; set; }
     }
 }

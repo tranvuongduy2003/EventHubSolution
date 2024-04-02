@@ -30,7 +30,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [Required]
         [Range(0, Double.PositiveInfinity)]
-        public decimal Price { get; set; }
+        public long Price { get; set; }
 
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;

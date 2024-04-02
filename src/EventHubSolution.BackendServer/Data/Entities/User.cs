@@ -59,5 +59,8 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }
+
+        [ForeignKey("AvatarId")]
+        public virtual FileStorage Avatar { get; set; } = null!;
     }
 }

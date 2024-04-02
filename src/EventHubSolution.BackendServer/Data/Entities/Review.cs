@@ -15,6 +15,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [MaxLength(50)]
         [Column(TypeName = "varchar(50)")]
+        public string UserId { get; set; }
+
+        [MaxLength(50)]
+        [Column(TypeName = "varchar(50)")]
         public string EventId { get; set; }
 
         [Required]
@@ -31,5 +35,8 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
+
+        [ForeignKey("UserId")]
+        public virtual User User { get; set; } = null!;
     }
 }

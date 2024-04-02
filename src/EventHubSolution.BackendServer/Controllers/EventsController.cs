@@ -7,6 +7,7 @@ using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.Systems;
+using IdentityServer4.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,7 @@ namespace EventHubSolution.BackendServer.Controllers
             _userManager = userManager;
         }
 
+        #region Events
         [HttpPost]
         [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.CREATE)]
         [ApiValidationFilter]
@@ -107,6 +109,10 @@ namespace EventHubSolution.BackendServer.Controllers
             });
 
             _db.Events.Add(eventData);
+
+            var user = await _userManager.FindByIdAsync(request.CreatorId);
+            user.NumberOfCreatedEvents += 1;
+
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
@@ -121,23 +127,9 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpGet]
         [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
-        public async Task<IActionResult> GetEvents([FromQuery] PaginationFilter filter)
+        public async Task<IActionResult> GetEvents([FromQuery] EventPaginationFilter filter)
         {
             var eventDatas = _db.Events.ToList();
-            if (filter.search != null)
-            {
-                eventDatas = eventDatas.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
-            }
-
-            eventDatas = filter.order switch
-            {
-                PageOrder.ASC => eventDatas.OrderBy(c => c.CreatedAt).ToList(),
-                PageOrder.DESC => eventDatas.OrderByDescending(c => c.CreatedAt).ToList(),
-                _ => eventDatas
-            };
-
-            var metadata = new Metadata(eventDatas.Count(), filter.page, filter.size, filter.takeAll);
-
             var eventDataVms = eventDatas
                     .Join(_db.FileStorages, _event => _event.CoverImageId, _fileStorage => _fileStorage.Id, (_event, _fileStorage) => new EventVm
                     {
@@ -168,6 +160,23 @@ namespace EventHubSolution.BackendServer.Controllers
                         _eventVm.LocationString = $"{_location.Street}, {_location.District}, {_location.City}";
                         return _eventVm;
                     })
+                    .Join(_db.TicketTypes, _eventVm => _eventVm.LocationId, _ticketType => _ticketType.Id, (_eventVm, _ticketType) => new
+                    {
+                        _eventVm,
+                        _ticketType
+                    })
+                    .GroupBy(joinedEventVm => joinedEventVm._eventVm)
+                    .Select(groupedEventVm =>
+                    {
+                        var eventVm = groupedEventVm.Key;
+                        eventVm.PriceRange = new PriceRangeVm
+                        {
+                            StartRange = groupedEventVm.Min(e => e._ticketType.Price),
+                            EndRange = groupedEventVm.Max(e => e._ticketType.Price)
+                        };
+                        return eventVm;
+                    })
+                    .DistinctBy(e => e.Id)
                     .Join(
                         _db.EventCategories.Join(
                             _db.Categories.Join(_db.FileStorages, _category => _category.IconImageId, _fileStorage => _fileStorage.Id, (_category, _fileStorage) => new CategoryVm
@@ -215,7 +224,50 @@ namespace EventHubSolution.BackendServer.Controllers
                         }).ToList();
                         return eventVm;
                     })
+                    .DistinctBy(e => e.Id)
                     .ToList();
+
+            if (filter.search != null)
+            {
+                eventDataVms = eventDataVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            eventDataVms = filter.order switch
+            {
+                PageOrder.ASC => eventDataVms.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => eventDataVms.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => eventDataVms
+            };
+
+            switch (filter.type)
+            {
+                case EventType.OPENING:
+                    eventDataVms = eventDataVms.Where(e => e.StartTime <= DateTime.UtcNow && DateTime.UtcNow <= e.EndTime).ToList();
+                    break;
+                case EventType.UPCOMING:
+                    eventDataVms = eventDataVms.Where(e => DateTime.UtcNow < e.StartTime).ToList();
+                    break;
+                case EventType.CLOSED:
+                    eventDataVms = eventDataVms.Where(e => e.EndTime < DateTime.UtcNow).ToList();
+                    break;
+            }
+
+            if (!filter.location.IsNullOrEmpty())
+            {
+                eventDataVms = eventDataVms.Where(e => e.LocationString.Split(", ").Any(str => filter.location.ToLower().Contains(str.ToLower()))).ToList();
+            }
+
+            if (!filter.categoryIds.IsNullOrEmpty())
+            {
+                eventDataVms = eventDataVms.Where(e => e.Categories.Exists(c => filter.categoryIds.Contains(c.Id))).ToList();
+            }
+
+            if (filter.priceRange != null)
+            {
+                eventDataVms = eventDataVms.Where(e => filter.priceRange.StartRange <= e.PriceRange.StartRange && filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
+            }
+
+            var metadata = new Metadata(eventDataVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
@@ -239,7 +291,7 @@ namespace EventHubSolution.BackendServer.Controllers
         {
             var eventData = await _db.Events.FindAsync(id);
             if (eventData == null)
-                return NotFound(new ApiNotFoundResponse(""));
+                return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
             var eventDataVm = new EventDetailVm()
             {
@@ -365,11 +417,11 @@ namespace EventHubSolution.BackendServer.Controllers
         [HttpPut("{id}")]
         [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.UPDATE)]
         [ApiValidationFilter]
-        public async Task<IActionResult> PutEvent(string id, [FromBody] EventCreateRequest request)
+        public async Task<IActionResult> PutEvent(string id, [FromForm] EventCreateRequest request)
         {
             var eventData = await _db.Events.FindAsync(id);
             if (eventData == null)
-                return NotFound(new ApiNotFoundResponse(""));
+                return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
             eventData.CreatorId = request.CreatorId;
             eventData.Name = request.Name;
@@ -443,7 +495,7 @@ namespace EventHubSolution.BackendServer.Controllers
         {
             var eventData = await _db.Events.FindAsync(id);
             if (eventData == null)
-                return NotFound(new ApiNotFoundResponse(""));
+                return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
             //TODO: Delete email content
             var emailContent = await _db.EmailContents.FindAsync(eventData.EmailContentId);
@@ -462,6 +514,10 @@ namespace EventHubSolution.BackendServer.Controllers
             _db.EventCategories.RemoveRange(eventCategories);
 
             _db.Events.Remove(eventData);
+
+            var user = await _userManager.FindByIdAsync(eventData.CreatorId);
+            user.NumberOfCreatedEvents -= 1;
+
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
@@ -470,5 +526,262 @@ namespace EventHubSolution.BackendServer.Controllers
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }
+        #endregion
+
+        #region Reviews
+        [HttpPost("{eventId}/reviews")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.CREATE)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> PostReview(string eventId, [FromBody] ReviewCreateRequest request)
+        {
+            var dbEvent = await _db.Reviews.FindAsync(eventId);
+            if (dbEvent == null)
+                return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
+
+            var review = new Review()
+            {
+                Id = Guid.NewGuid().ToString(),
+                EventId = eventId,
+                Content = request.Content,
+                UserId = request.UserId,
+                Rate = request.Rate,
+            };
+            _db.Reviews.Add(review);
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return CreatedAtAction(nameof(GetById), new { id = review.Id }, request);
+            }
+            else
+            {
+                return BadRequest(new ApiBadRequestResponse(""));
+            }
+        }
+
+        [HttpGet("{eventId}/reviews")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
+        public async Task<IActionResult> GetReviews(string eventId, [FromQuery] PaginationFilter filter)
+        {
+            var dbEvent = await _db.Reviews.FindAsync(eventId);
+            if (dbEvent == null)
+                return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
+
+            var reviews = _db.Reviews.Where(r => r.EventId == eventId).ToList();
+            if (filter.search != null)
+            {
+                reviews = reviews.Where(c => c.Content.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            reviews = filter.order switch
+            {
+                PageOrder.ASC => reviews.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => reviews.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => reviews
+            };
+
+            var metadata = new Metadata(reviews.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.takeAll == false)
+            {
+                reviews = reviews.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var reviewVms = reviews
+                .Join(_db.Events, _review => _review.EventId, _event => _event.Id, (_review, _event) =>
+                {
+                    _review.Event = _event;
+                    return _review;
+                })
+                .Join(
+                    _userManager.Users.Join(_db.FileStorages, _user => _user.AvatarId, _fileStorage => _fileStorage.Id, (_user, _fileStorage) => new User
+                    {
+                        Id = _user.Id,
+                        Email = _user.Email,
+                        FullName = _user.FullName,
+                        Avatar = _fileStorage,
+                    }),
+                    _review => _review.EventId,
+                    _user => _user.Id, (_review, _user) => new ReviewVm
+                    {
+                        Id = _review.Id,
+                        EventId = _review.EventId,
+                        EventName = _review.Event.Name,
+                        UserId = _review.UserId,
+                        UserAvatar = _user.Avatar.FilePath,
+                        UserName = _user.FullName,
+                        Content = _review.Content,
+                        Rate = _review.Rate,
+                        CreatedAt = _review.CreatedAt,
+                        UpdatedAt = _review.UpdatedAt,
+                    }
+                )
+                .ToList();
+
+            var pagination = new Pagination<ReviewVm>
+            {
+                Items = reviewVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(pagination);
+        }
+
+        [HttpGet("{eventId}/reviews/{reviewId}")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
+        public async Task<IActionResult> GetById(string eventId, string reviewId)
+        {
+            var review = await _db.Reviews.FindAsync(reviewId);
+            if (review == null)
+                return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
+
+            var users = _userManager.Users.Join(_db.FileStorages, _user => _user.AvatarId, _fileStorage => _fileStorage.Id, (_user, _fileStorage) => new User
+            {
+                Id = _user.Id,
+                Email = _user.Email,
+                FullName = _user.FullName,
+                Avatar = _fileStorage,
+            });
+            var reviewUser = users.FirstOrDefault(u => u.Id == review.UserId);
+
+            var dbEvent = await _db.Events.FindAsync(review.EventId);
+
+            var reviewVm = new ReviewVm()
+            {
+                Id = review.Id,
+                EventId = review.EventId,
+                EventName = dbEvent?.Name,
+                UserId = review.UserId,
+                UserAvatar = reviewUser?.Avatar.FilePath,
+                UserName = reviewUser?.FullName,
+                Content = review.Content,
+                Rate = review.Rate,
+                CreatedAt = review.CreatedAt,
+                UpdatedAt = review.UpdatedAt,
+            };
+            return Ok(reviewVm);
+        }
+
+        [HttpPut("{eventId}/reviews/{reviewId}")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.UPDATE)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> PutReview(string eventId, string reviewId, [FromBody] ReviewCreateRequest request)
+        {
+            var review = await _db.Reviews.FindAsync(reviewId);
+            if (review == null)
+                return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
+
+            review.EventId = request.EventId;
+            review.UserId = request.UserId;
+            review.Content = request.Content;
+            review.Rate = request.Rate;
+
+            _db.Reviews.Update(review);
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return NoContent();
+            }
+            return BadRequest(new ApiBadRequestResponse(""));
+        }
+
+        [HttpDelete("{eventId}/reviews/{reviewId}")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.DELETE)]
+        public async Task<IActionResult> DeleteReview(string eventId, string reviewId)
+        {
+            var review = await _db.Reviews.FindAsync(reviewId);
+            if (review == null)
+                return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
+
+            _db.Reviews.Remove(review);
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return Ok();
+            }
+            return BadRequest(new ApiBadRequestResponse(""));
+        }
+        #endregion
+
+        #region Favourite Events
+        [HttpPost("{eventId}/favourites/subscribe")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.CREATE)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> PostCreateFavouriteEvent(string eventId, [FromBody] FavouriteEventCreateRequest request)
+        {
+            var dbEvent = await _db.Events.FindAsync(request.EventId);
+            if (dbEvent == null)
+                return NotFound(new ApiNotFoundResponse($"Event with id {request.EventId} is not existed."));
+
+            var user = await _userManager.FindByIdAsync(request.UserId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {request.UserId} is not existed."));
+
+            var dbFavouriteEvent = await _db.FavouriteEvents.FindAsync(request.EventId, request.UserId);
+            if (dbFavouriteEvent != null)
+                return BadRequest(new ApiBadRequestResponse($"User has subscribed this event before"));
+
+            var favouriteEvent = new FavouriteEvent
+            {
+                EventId = request.EventId,
+                UserId = request.UserId,
+            };
+
+            _db.FavouriteEvents.Add(favouriteEvent);
+
+            user.NumberOfFavourites += 1;
+            dbEvent.NumberOfFavourites += 1;
+
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return CreatedAtAction(nameof(GetById), new { eventId = favouriteEvent.EventId, userId = favouriteEvent.UserId }, request);
+            }
+            else
+            {
+                return BadRequest(new ApiBadRequestResponse(""));
+            }
+        }
+
+        [HttpPost("{eventId}/favourites/unsubscribe")]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.CREATE)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> PostRemoveFavouriteEvent(string eventId, [FromBody] FavouriteEventCreateRequest request)
+        {
+            var dbEvent = await _db.Events.FindAsync(request.EventId);
+            if (dbEvent == null)
+                return NotFound(new ApiNotFoundResponse($"Event with id {request.EventId} is not existed."));
+
+            var user = await _userManager.FindByIdAsync(request.UserId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {request.UserId} is not existed."));
+
+            var dbFavouriteEvent = await _db.FavouriteEvents.FindAsync(request.EventId, request.UserId);
+            if (dbFavouriteEvent == null)
+                return NotFound(new ApiNotFoundResponse($"User has not subscribed this event before"));
+
+            _db.FavouriteEvents.Remove(dbFavouriteEvent);
+
+            user.NumberOfFavourites -= 1;
+            dbEvent.NumberOfFavourites -= 1;
+
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                return Ok();
+            }
+            else
+            {
+                return BadRequest(new ApiBadRequestResponse(""));
+            }
+        }
+        #endregion
     }
 }

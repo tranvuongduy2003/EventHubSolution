@@ -1,4 +1,5 @@
 ﻿using EventHubSolution.ViewModels.Constants;
+using EventHubSolution.ViewModels.Systems;
 
 namespace EventHubSolution.ViewModels.Contents
 {
@@ -21,6 +22,8 @@ namespace EventHubSolution.ViewModels.Contents
         public string LocationId { get; set; }
 
         public string LocationString { get; set; }
+
+        public PriceRangeVm PriceRange { get; set; }
 
         public DateTime StartTime { get; set; }
 

@@ -5,6 +5,7 @@ using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Extensions;
 using EventHubSolution.BackendServer.Extentions;
 using EventHubSolution.BackendServer.Helpers;
+using EventHubSolution.BackendServer.Hubs;
 using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Systems;
 using FluentValidation.AspNetCore;
@@ -35,10 +36,11 @@ builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
     .Build();
 
 // 1. Set up entity framework
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
+
+builder.Services.AddSignalR();
 
 builder.Services.AddCors(p =>
     p.AddPolicy(AppCors, build => { build.WithOrigins("*").AllowAnyMethod().AllowAnyHeader(); }));
@@ -167,6 +169,8 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<ChatHub>("/Chat");
 
 app.UseSwagger();
 
