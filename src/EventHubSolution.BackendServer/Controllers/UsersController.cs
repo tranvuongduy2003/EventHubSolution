@@ -1,5 +1,4 @@
-﻿
-using EventHubSolution.BackendServer.Authorization;
+﻿using EventHubSolution.BackendServer.Authorization;
 using EventHubSolution.BackendServer.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
@@ -32,7 +31,6 @@ namespace EventHubSolution.BackendServer.Controllers
             _fileStorage = fileStorage;
         }
 
-        #region Users
         [HttpPost]
         [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.CREATE)]
         [ApiValidationFilter]
@@ -251,7 +249,6 @@ namespace EventHubSolution.BackendServer.Controllers
             }
             return BadRequest(new ApiBadRequestResponse(result));
         }
-        #endregion
 
         [HttpGet("{userId}/menu")]
         public async Task<IActionResult> GetMenuByUserPermission(string userId)
@@ -281,7 +278,7 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet("{userId}/reviews")]
-        [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.VIEW)]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
         public async Task<IActionResult> GetReviewsByUserId(string userId, [FromQuery] PaginationFilter filter)
         {
             var user = await _userManager.FindByIdAsync(userId);
@@ -336,39 +333,13 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet("{userId}/events/favourites")]
-        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.VIEW)]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.CREATE)]
         [ApiValidationFilter]
         public async Task<IActionResult> GetFavoutireEventsByUserId(string userId, [FromQuery] EventPaginationFilter filter)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {userId} is not existed."));
-
-            var eventCategories = (from _eventCategory in _db.EventCategories
-                                   join _categoryVm in (from _category in _db.Categories
-                                                        join _fileStorage in _db.FileStorages
-                                                        on _category.IconImageId equals _fileStorage.Id
-                                                        into joinedCategories
-                                                        from _joinedCategory in joinedCategories.DefaultIfEmpty()
-                                                        select new CategoryVm
-                                                        {
-                                                            Id = _category.Id,
-                                                            Color = _category.Color,
-                                                            IconImage = _joinedCategory != null ? _joinedCategory.FilePath : "",
-                                                            Name = _category.Name,
-                                                            CreatedAt = _category.CreatedAt,
-                                                            UpdatedAt = _category.UpdatedAt,
-                                                        })
-                                   on _eventCategory.CategoryId equals _categoryVm.Id
-                                   into joinedEventCategories
-                                   from _joinedEventCategory in joinedEventCategories.DefaultIfEmpty()
-                                   select new
-                                   {
-                                       EventId = _eventCategory.EventId,
-                                       CategoryId = _eventCategory.CategoryId,
-                                       CategoryVm = _joinedEventCategory,
-                                   }
-                                    );
 
             var eventDatas = _db.FavouriteEvents
                     .Join(_db.Events, _favouriteEvent => _favouriteEvent.EventId, _event => _event.Id, (_favouriteEvent, _event) => new
@@ -380,80 +351,98 @@ namespace EventHubSolution.BackendServer.Controllers
                     .Select(joinedEvent => joinedEvent._event)
                     .ToList();
 
-            var eventDataVms = (from _eventVm in
-                                    (from _eventVm in
-                                         (from _event in eventDatas
-                                          join _fileStorage in _db.FileStorages
-                                          on _event.CoverImageId equals _fileStorage.Id
-                                          into joinedEvents
-                                          from _joinedEvent in joinedEvents.DefaultIfEmpty()
-                                          join _location in _db.Locations
-                                          on _event.LocationId equals _location.Id
-                                          into joinedLocationEvents
-                                          from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
-                                          select new EventVm
-                                          {
-                                              Id = _event.Id,
-                                              Name = _event.Name,
-                                              CreatorName = user.FullName,
-                                              Description = _event.Description,
-                                              CoverImageId = _event.CoverImageId,
-                                              CoverImage = _joinedEvent?.FilePath,
-                                              CreatorId = _event.CreatorId,
-                                              LocationId = _event.LocationId,
-                                              StartTime = _event.StartTime,
-                                              EndTime = _event.EndTime,
-                                              NumberOfFavourites = _event.NumberOfFavourites,
-                                              NumberOfShares = _event.NumberOfShares,
-                                              NumberOfSoldTickets = _event.NumberOfSoldTickets,
-                                              Promotion = _event.Promotion,
-                                              Status = _event.Status,
-                                              LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}" : "",
-                                              CreatedAt = _event.CreatedAt,
-                                              UpdatedAt = _event.UpdatedAt
-                                          })
-                                     join _ticketType in _db.TicketTypes
-                                     on _eventVm.Id equals _ticketType.EventId
-                                     into joinedTicketTypeEvents
-                                     from _joinedTicketTypeEvent in joinedTicketTypeEvents.DefaultIfEmpty()
-                                     select new
-                                     {
-                                         _eventVm,
-                                         _joinedTicketTypeEvent
-                                     })
-                                .GroupBy(joinedTicketTypeEvent => joinedTicketTypeEvent._eventVm)
-                                .Select(groupedEventVm =>
-                                {
-                                    var eventVm = groupedEventVm.Key;
-                                    eventVm.PriceRange = new PriceRangeVm
-                                    {
-                                        StartRange = groupedEventVm.Min(e => e._joinedTicketTypeEvent.Price),
-                                        EndRange = groupedEventVm.Max(e => e._joinedTicketTypeEvent.Price)
-                                    };
-                                    return eventVm;
-                                })
-                                .DistinctBy(e => e.Id)
-                                join _eventCategory in eventCategories
-                                on _eventVm.Id equals _eventCategory.EventId
-                                into joinedCategoryEvents
-                                from _joinedCategoryEvent in joinedCategoryEvents.DefaultIfEmpty()
-                                select new
-                                {
-                                    _eventVm,
-                                    _joinedCategoryEvent
-                                })
-                                .GroupBy(joinedEvent => joinedEvent._eventVm)
-                                .Select(groupedEvent =>
-                                {
-                                    var eventVm = groupedEvent.Key;
-                                    eventVm.Categories = groupedEvent
-                                                            .Where(e => e._joinedCategoryEvent != null)
-                                                            .Select(e => e._joinedCategoryEvent.CategoryVm)
-                                                            .ToList();
-                                    return eventVm;
-                                })
-                                .DistinctBy(e => e.Id)
-                                .ToList();
+            var eventDataVms = eventDatas
+                    .Join(_db.FileStorages, _event => _event.CoverImageId, _fileStorage => _fileStorage.Id, (_event, _fileStorage) => new EventVm
+                    {
+                        Id = _event.Id,
+                        Name = _event.Name,
+                        CreatorName = user.FullName,
+                        Description = _event.Description,
+                        CoverImageId = _event.CoverImageId,
+                        CoverImage = _fileStorage.FilePath,
+                        CreatorId = _event.CreatorId,
+                        LocationId = _event.LocationId,
+                        StartTime = _event.StartTime,
+                        EndTime = _event.EndTime,
+                        NumberOfFavourites = _event.NumberOfFavourites,
+                        NumberOfShares = _event.NumberOfShares,
+                        NumberOfSoldTickets = _event.NumberOfSoldTickets,
+                        Promotion = _event.Promotion,
+                        Status = _event.Status,
+                        CreatedAt = _event.CreatedAt,
+                        UpdatedAt = _event.UpdatedAt
+                    })
+                    .Join(_db.Locations, _eventVm => _eventVm.LocationId, _location => _location.Id, (_eventVm, _location) =>
+                    {
+                        _eventVm.LocationString = $"{_location.Street}, {_location.District}, {_location.City}";
+                        return _eventVm;
+                    })
+                    .Join(_db.TicketTypes, _eventVm => _eventVm.LocationId, _ticketType => _ticketType.Id, (_eventVm, _ticketType) => new
+                    {
+                        _eventVm,
+                        _ticketType
+                    })
+                    .GroupBy(joinedEventVm => joinedEventVm._eventVm)
+                    .Select(groupedEventVm =>
+                    {
+                        var eventVm = groupedEventVm.Key;
+                        eventVm.PriceRange = new PriceRangeVm
+                        {
+                            StartRange = groupedEventVm.Min(e => e._ticketType.Price),
+                            EndRange = groupedEventVm.Max(e => e._ticketType.Price)
+                        };
+                        return eventVm;
+                    })
+                    .DistinctBy(e => e.Id)
+                    .Join(
+                        _db.EventCategories.Join(
+                            _db.Categories.Join(_db.FileStorages, _category => _category.IconImageId, _fileStorage => _fileStorage.Id, (_category, _fileStorage) => new CategoryVm
+                            {
+                                Id = _category.Id,
+                                Color = _category.Color,
+                                IconImage = _fileStorage.FilePath,
+                                Name = _category.Name,
+                                CreatedAt = _category.CreatedAt,
+                                UpdatedAt = _category.UpdatedAt,
+                            }).DefaultIfEmpty(),
+                            _eventCategory => _eventCategory.CategoryId,
+                            _categoryVm => _categoryVm.Id,
+                            (_eventCategory, _categoryVm) => new
+                            {
+                                EventId = _eventCategory.EventId,
+                                CategoryId = _categoryVm.Id,
+                                Color = _categoryVm.Color,
+                                IconImage = _categoryVm.IconImage,
+                                Name = _categoryVm.Name,
+                                CreatedAt = _categoryVm.CreatedAt,
+                                UpdatedAt = _categoryVm.UpdatedAt,
+                            }
+                        ),
+                        _eventVm => _eventVm.Id,
+                        _joinedEventCategory => _joinedEventCategory.EventId,
+                        (_eventVm, _joinedEventCategory) => new
+                        {
+                            _eventVm,
+                            _joinedEventCategory
+                        }
+                    )
+                    .GroupBy(joinedEvent => joinedEvent._eventVm)
+                    .Select(groupedEvent =>
+                    {
+                        var eventVm = groupedEvent.Key;
+                        eventVm.Categories = groupedEvent.Select(e => new CategoryVm
+                        {
+                            Id = e._joinedEventCategory.CategoryId,
+                            Color = e._joinedEventCategory.Color,
+                            Name = e._joinedEventCategory.Name,
+                            IconImage = e._joinedEventCategory.IconImage,
+                            CreatedAt = e._joinedEventCategory.CreatedAt,
+                            UpdatedAt = e._joinedEventCategory.UpdatedAt,
+                        }).ToList();
+                        return eventVm;
+                    })
+                    .DistinctBy(e => e.Id)
+                    .ToList();
 
             if (filter.search != null)
             {
@@ -513,9 +502,8 @@ namespace EventHubSolution.BackendServer.Controllers
             return Ok(pagination);
         }
 
-        #region Followers
         [HttpPost("followers/follow")]
-        [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.CREATE)]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.CREATE)]
         [ApiValidationFilter]
         public async Task<IActionResult> PostFollowUser([FromBody] FollowerCreateRequest request)
         {
@@ -555,7 +543,7 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpPost("followers/unfollow")]
-        [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.DELETE)]
+        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.CREATE)]
         [ApiValidationFilter]
         public async Task<IActionResult> PostUnFollowUser([FromBody] FollowerCreateRequest request)
         {
@@ -587,6 +575,5 @@ namespace EventHubSolution.BackendServer.Controllers
                 return BadRequest(new ApiBadRequestResponse(""));
             }
         }
-        #endregion
     }
 }

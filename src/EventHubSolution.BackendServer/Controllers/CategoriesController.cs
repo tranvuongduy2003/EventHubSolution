@@ -79,20 +79,15 @@ namespace EventHubSolution.BackendServer.Controllers
                     .Take(filter.size).ToList();
             }
 
-            var categoryVms = (from _category in categories
-                               join _fileStorage in _db.FileStorages
-                               on _category.IconImageId equals _fileStorage.Id
-                               into joinedCategories
-                               from _joinedCategory in joinedCategories
-                               select new CategoryVm
-                               {
-                                   Id = _category.Id,
-                                   Name = _category.Name,
-                                   Color = _category.Color,
-                                   IconImage = _joinedCategory?.FilePath,
-                                   CreatedAt = _category.CreatedAt,
-                                   UpdatedAt = _category.UpdatedAt
-                               }).ToList();
+            var categoryVms = categories.Join(_db.FileStorages, c => c.IconImageId, f => f.Id, (c, f) => new CategoryVm
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Color = c.Color,
+                IconImage = f.FilePath,
+                CreatedAt = c.CreatedAt,
+                UpdatedAt = c.UpdatedAt
+            }).ToList();
 
             var pagination = new Pagination<CategoryVm>
             {
