@@ -25,12 +25,12 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Range(0, Double.PositiveInfinity)]
         public int Quantity { get; set; } = 0;
 
-        [Range(0, Double.PositiveInfinity)]
-        public int? NumberOfSoldTickets { get; set; } = 0;
-
         [Required]
         [Range(0, Double.PositiveInfinity)]
         public long Price { get; set; }
+
+        [Range(0, Double.PositiveInfinity)]
+        public int? NumberOfSoldTickets { get; set; } = 0;
 
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;

@@ -17,7 +17,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string EventId { get; set; }
 
         [ForeignKey("CategoryId")]
-        public virtual Category Label { get; set; } = null!;
+        public virtual Category Category { get; set; } = null!;
 
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
