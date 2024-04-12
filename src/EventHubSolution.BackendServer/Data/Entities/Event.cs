@@ -1,5 +1,5 @@
-﻿using EventHubSolution.BackendServer.Data.Interfaces;
-using EventHubSolution.ViewModels.Constants;
+﻿using EventHubSolution.ViewModels.Constants;
+using EventHubSolution.BackendServer.Data.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -35,16 +35,6 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string Description { get; set; }
 
         [Required]
-        [MaxLength(50)]
-        [Column(TypeName = "varchar(50)")]
-        public string LocationId { get; set; }
-
-        [Required]
-        [MaxLength(50)]
-        [Column(TypeName = "varchar(50)")]
-        public string EmailContentId { get; set; }
-
-        [Required]
         public DateTime StartTime { get; set; }
 
         [Required]
@@ -69,18 +59,47 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
-
+        [NotMapped]
         [ForeignKey("CreatorId")]
         public virtual User Creator { get; set; } = null!;
 
+        [NotMapped]
         [ForeignKey("CoverImageId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual FileStorage CoverImage { get; set; } = null!;
 
-        [ForeignKey("LocationId")]
-        public virtual Location Location { get; set; } = null!;
+        [NotMapped]
+        public virtual Location? Location { get; set; }
 
-        [ForeignKey("EmailContentId")]
-        public virtual EmailContent EmailContent { get; set; } = null!;
+        [NotMapped]
+        public virtual EmailContent? EmailContent { get; set; }
+
+        [NotMapped]
+        public virtual ICollection<EventCategory> EventCategories { get; set; } = new List<EventCategory>();
+
+        [NotMapped]
+        public virtual ICollection<EventSubImage> EventSubImages { get; set; } = new List<EventSubImage>();
+
+        [NotMapped]
+        public virtual ICollection<TicketType> TicketTypes { get; set; } = new List<TicketType>();
+
+        [NotMapped]
+        public virtual ICollection<LabelInEvent> LabelInEvents { get; set; } = new List<LabelInEvent>();
+
+        [NotMapped]
+        public virtual ICollection<FavouriteEvent> FavouriteEvents { get; set; } = new List<FavouriteEvent>();
+
+        [NotMapped]
+        public virtual ICollection<Invitation> Invitations { get; set; } = new List<Invitation>();
+
+        [NotMapped]
+        public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
+
+        [NotMapped]
+        public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
+
+        [NotMapped]
+        public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+
     }
 }

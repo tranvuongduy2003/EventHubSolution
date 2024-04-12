@@ -15,5 +15,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [MaxLength(50)]
         [Required]
         public string Name { get; set; }
+
+        [NotMapped]
+        public virtual ICollection<CommandInFunction> CommandInFunctions { get; set; } = new List<CommandInFunction>();
+
+        [NotMapped]
+        public virtual ICollection<Permission> Permissions { get; set; } = new List<Permission>();
     }
 }

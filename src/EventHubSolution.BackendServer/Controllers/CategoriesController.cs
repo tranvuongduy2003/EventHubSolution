@@ -1,19 +1,19 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.BackendServer.Constants;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.Systems;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
-    public class CategoriesController : BaseController
+    [Route("api/categories")]
+    [ApiController]
+    public class CategoriesController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
         private readonly IFileStorageService _fileService;
@@ -54,8 +54,6 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet]
-        [ClaimRequirement(FunctionCode.CONTENT_CATEGORY, CommandCode.VIEW)]
-        [AllowAnonymous]
         public async Task<IActionResult> GetCategories([FromQuery] PaginationFilter filter)
         {
             var categories = _db.Categories.ToList();
@@ -107,7 +105,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpGet("{id}")]
         [ClaimRequirement(FunctionCode.CONTENT_CATEGORY, CommandCode.VIEW)]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(string id)
         {
             var category = await _db.Categories.FindAsync(id);
 
@@ -132,7 +130,7 @@ namespace EventHubSolution.BackendServer.Controllers
         [HttpPut("{id}")]
         [ClaimRequirement(FunctionCode.CONTENT_CATEGORY, CommandCode.UPDATE)]
         [ApiValidationFilter]
-        public async Task<IActionResult> PutCategory(int id, [FromForm] CategoryCreateRequest request)
+        public async Task<IActionResult> PutCategory(string id, [FromForm] CategoryCreateRequest request)
         {
             var category = await _db.Categories.FindAsync(id);
             if (category == null)

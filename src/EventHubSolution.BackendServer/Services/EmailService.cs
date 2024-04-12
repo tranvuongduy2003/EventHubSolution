@@ -1,11 +1,10 @@
-﻿using EventHubSolution.BackendServer.Services;
-using EventHubSolution.ViewModels.Systems;
+﻿using EventHubSolution.ViewModels.Systems;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
 
-namespace TicketManagement.Api.Services;
+namespace EventHubSolution.BackendServer.Services;
 
 public class EmailService : IEmailService
 {

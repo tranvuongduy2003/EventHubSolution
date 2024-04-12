@@ -1,5 +1,5 @@
-﻿using EventHubSolution.BackendServer.Data.Interfaces;
-using EventHubSolution.ViewModels.Constants;
+﻿using EventHubSolution.ViewModels.Constants;
+using EventHubSolution.BackendServer.Data.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -60,7 +60,35 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
+        [NotMapped]
         [ForeignKey("AvatarId")]
         public virtual FileStorage Avatar { get; set; } = null!;
+
+        [NotMapped]
+        public virtual ICollection<LabelInUser> LabelInUsers { get; set; } = new List<LabelInUser>();
+
+        [NotMapped]
+        public virtual ICollection<UserFollower> Followers { get; set; } = new List<UserFollower>();
+
+        [NotMapped]
+        public virtual ICollection<Invitation> Inviters { get; set; } = new List<Invitation>();
+
+        [NotMapped]
+        public virtual ICollection<Invitation> Inviteds { get; set; } = new List<Invitation>();
+
+        [NotMapped]
+        public virtual ICollection<UserFollower> Followeds { get; set; } = new List<UserFollower>();
+
+        [NotMapped]
+        public virtual ICollection<FavouriteEvent> FavouriteEvents { get; set; } = new List<FavouriteEvent>();
+
+        [NotMapped]
+        public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
+
+        [NotMapped]
+        public virtual ICollection<Event> Events { get; set; } = new List<Event>();
+
+        [NotMapped]
+        public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
     }
 }

@@ -1,7 +1,9 @@
 ﻿using EventHubSolution.BackendServer.Data.Entities;
+using EventHubSolution.BackendServer.Data.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace EventHubSolution.BackendServer.Data
 {
@@ -9,6 +11,27 @@ namespace EventHubSolution.BackendServer.Data
     {
         public ApplicationDbContext(DbContextOptions options) : base(options)
         {
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default(CancellationToken))
+        {
+            IEnumerable<EntityEntry> modified = ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Modified || e.State == EntityState.Added);
+            foreach (EntityEntry item in modified)
+            {
+                if (item.Entity is IDateTracking changedOrAddedItem)
+                {
+                    if (item.State == EntityState.Added)
+                    {
+                        changedOrAddedItem.CreatedAt = DateTime.Now;
+                    }
+                    else
+                    {
+                        changedOrAddedItem.UpdatedAt = DateTime.Now;
+                    }
+                }
+            }
+            return base.SaveChangesAsync(cancellationToken);
         }
 
         protected override void OnModelCreating(ModelBuilder builder)
@@ -31,27 +54,6 @@ namespace EventHubSolution.BackendServer.Data
             builder.Entity<EmailContent>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<Payment>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<Ticket>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
-
-            builder.Entity<Permission>()
-                       .HasKey(x => new { x.RoleId, x.FunctionId, x.CommandId });
-            builder.Entity<CommandInFunction>()
-                       .HasKey(x => new { x.CommandId, x.FunctionId });
-            builder.Entity<EmailAttachment>()
-                       .HasKey(x => new { x.AttachmentId, x.EmailContentId });
-            builder.Entity<LabelInEvent>()
-                      .HasKey(x => new { x.LabelId, x.EventId });
-            builder.Entity<UserFollower>()
-                      .HasKey(x => new { x.FollowerId, x.FollowedId });
-            builder.Entity<UserFollower>()
-                      .HasKey(x => new { x.FollowerId, x.FollowedId });
-            builder.Entity<FavouriteEvent>()
-                      .HasKey(x => new { x.EventId, x.UserId });
-            builder.Entity<LabelInUser>()
-                      .HasKey(x => new { x.LabelId, x.UserId });
-            builder.Entity<EmailAttachment>()
-                      .HasKey(x => new { x.AttachmentId, x.EmailContentId });
-            builder.Entity<EventCategory>()
-                      .HasKey(x => new { x.CategoryId, x.EventId });
         }
 
         public DbSet<User> Users { set; get; }
@@ -77,5 +79,6 @@ namespace EventHubSolution.BackendServer.Data
         public DbSet<TicketType> TicketTypes { set; get; }
         public DbSet<UserFollower> UserFollowers { set; get; }
         public DbSet<EventCategory> EventCategories { set; get; }
+        public DbSet<Invitation> Invitations { set; get; }
     }
 }

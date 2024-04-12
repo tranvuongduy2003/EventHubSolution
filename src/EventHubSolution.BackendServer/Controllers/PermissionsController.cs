@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.BackendServer.Constants;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +9,9 @@ using System.Data;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
-    public class PermissionsController : BaseController
+    [Route("api/permissions")]
+    [ApiController]
+    public class PermissionsController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
         private readonly IConfiguration _configuration;

@@ -1,17 +1,15 @@
-﻿using EventHubSolution.BackendServer.Constants;
+﻿using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Systems;
-using IdentityModel.Client;
-using IdentityServer4.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Extensions;
 using Newtonsoft.Json;
@@ -21,7 +19,7 @@ using System.Security.Claims;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/auth")]
     [ApiController]
     public class AuthController : ControllerBase
     {
@@ -89,7 +87,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
                 await SendRegistrationConfirmationEmailAsync(userToReturn.Email, userToReturn.UserName);
 
-                return CreatedAtAction("POST", new { id = userToReturn.Id }, signUpResponse);
+                return CreatedAtAction(nameof(SignUp), new { id = userToReturn.Id }, signUpResponse);
             }
             else
             {
@@ -153,7 +151,6 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpPost]
-        [AllowAnonymous]
         [Route("external-login")]
         public IActionResult ExternalLogin(string provider, string returnUrl)
         {
@@ -164,7 +161,6 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet]
-        [AllowAnonymous]
         [Route("external-auth-callback")]
         public async Task<IActionResult> ExternalLoginCallback()
         {
@@ -247,43 +243,43 @@ namespace EventHubSolution.BackendServer.Controllers
             return Redirect($"http://localhost:5174/");
         }
 
-        [Authorize]
-        [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
-        {
-            if (request is null || request.RefreshToken is null || request.RefreshToken == "")
-                return BadRequest("Invalid token");
+        //[Authorize]
+        //[HttpPost("refresh-token")]
+        //public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        //{
+        //    if (request is null || request.RefreshToken is null || request.RefreshToken == "")
+        //        return BadRequest("Invalid token");
 
-            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
-            if (accessToken == null || accessToken == "")
-            {
-                return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
-            }
-            var principal = _tokenService.GetPrincipalFromToken(accessToken);
+        //    var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+        //    if (accessToken == null || accessToken == "")
+        //    {
+        //        return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
+        //    }
+        //    var principal = _tokenService.GetPrincipalFromToken(accessToken);
 
-            var user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
-            if (user == null)
-            {
-                return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
-            }
+        //    var user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+        //    if (user == null)
+        //    {
+        //        return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
+        //    }
 
-            var isValid = await _userManager.VerifyUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH, request.RefreshToken);
-            if (!isValid)
-            {
-                return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
-            }
+        //    var isValid = await _userManager.VerifyUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH, request.RefreshToken);
+        //    if (!isValid)
+        //    {
+        //        return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
+        //    }
 
-            var newAccessToken = _tokenService.GenerateAccessToken(user);
-            var newRefreshToken = await _userManager.GenerateUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH);
+        //    var newAccessToken = _tokenService.GenerateAccessToken(user);
+        //    var newRefreshToken = await _userManager.GenerateUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH);
 
-            SignInResponse refreshResponse = new SignInResponse()
-            {
-                AccessToken = newAccessToken,
-                RefreshToken = newRefreshToken
-            };
+        //    SignInResponse refreshResponse = new SignInResponse()
+        //    {
+        //        AccessToken = newAccessToken,
+        //        RefreshToken = newRefreshToken
+        //    };
 
-            return Ok(refreshResponse);
-        }
+        //    return Ok(refreshResponse);
+        //}
 
         [Authorize]
         [HttpPost("forgot-password")]

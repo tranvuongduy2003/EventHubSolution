@@ -13,15 +13,22 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string Id { get; set; }
 
         [Required]
+        [MaxLength(5000)]
+        public string Content { get; set; }
+
+        [Required]
         [MaxLength(50)]
         [Column(TypeName = "varchar(50)")]
         public string EventId { get; set; }
 
-        [Required]
-        [MaxLength(5000)]
-        public string Content { get; set; }
-
+        [NotMapped]
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
+
+        [NotMapped]
+        public virtual ICollection<EmailAttachment> EmailAttachments { get; set; } = new List<EmailAttachment>();
+
+        [NotMapped]
+        public virtual ICollection<EmailLogger> EmailLoggers { get; set; } = new List<EmailLogger>();
     }
 }

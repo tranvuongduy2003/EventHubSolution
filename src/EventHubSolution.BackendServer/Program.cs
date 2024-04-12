@@ -1,11 +1,10 @@
 using AutoMapper;
-using EventHubSolution.BackendServer.Constants;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Extensions;
 using EventHubSolution.BackendServer.Extentions;
 using EventHubSolution.BackendServer.Helpers;
-using EventHubSolution.BackendServer.Hubs;
 using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Systems;
 using FluentValidation.AspNetCore;
@@ -15,32 +14,31 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
-using TicketManagement.Api.Services;
+using System.Text.Json.Serialization;
 
 var AppCors = "AppCors";
 
-Log.Logger = new LoggerConfiguration()
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .CreateLogger();
-
 var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container
-builder.Services.AddSerilog((loggerConfiguration) => loggerConfiguration.ReadFrom.Configuration(builder.Configuration));
 
 var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json")
-    .AddJsonFile($"appsettings.{environmentName}.json")
-    .Build();
+    .AddJsonFile($"appsettings.{environmentName}.json", true)
+    .AddEnvironmentVariables();
+
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .CreateLogger();
+
+// Add services to the container
+builder.Services.AddSerilog(Log.Logger);
 
 // 1. Set up entity framework
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
-builder.Services.AddSignalR();
+//builder.Services.AddSignalR();
 
 builder.Services.AddCors(p =>
     p.AddPolicy(AppCors, build => { build.WithOrigins("*").AllowAnyMethod().AllowAnyHeader(); }));
@@ -92,7 +90,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     options.SuppressModelStateInvalidFilter = true;
 });
 
-builder.Services.AddControllersWithViews().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<RoleCreateRequestValidator>());
+builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()))
+    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<RoleCreateRequestValidator>());
 
 builder.Services.AddTransient<DbInitializer>();
 builder.Services.AddTransient<IEmailService, EmailService>();
@@ -102,12 +103,14 @@ builder.Services.AddTransient<ITokenService, TokenService>();
 
 builder.Services.AddSingleton<AzureBlobService>();
 
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(option =>
 {
     option.AddSecurityDefinition(name: JwtBearerDefaults.AuthenticationScheme, securityScheme: new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Description = "Enter the Bearer Authorization string as following: `Bearer Generated-JWT-Token`",
+        Description = "Enter the Bearer Authorization PageOrder as following: `Bearer Generated-JWT-Token`",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
@@ -132,7 +135,26 @@ builder.AddAppAuthetication();
 
 var app = builder.Build();
 
-app.UseCors();
+// Configure the HTTP request pipeline.
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Event Hub API V1");
+});
+
+app.UseHttpsRedirection();
+
+app.UseCors(AppCors);
+
+app.UseErrorWrapping();
+
+app.UseAuthentication();
+
+app.UseAuthorization();
+
+//app.MapHub<ChatHub>("/Chat");
+
+app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -140,6 +162,11 @@ using (var scope = app.Services.CreateScope())
     try
     {
         Log.Information("Seeding data...");
+        var db = services.GetRequiredService<ApplicationDbContext>();
+        if (db.Database.GetPendingMigrations().Count() > 0)
+        {
+            db.Database.Migrate();
+        }
         var dbInitializer = services.GetService<DbInitializer>();
         dbInitializer?.Seed().Wait();
     }
@@ -149,35 +176,6 @@ using (var scope = app.Services.CreateScope())
         logger.LogError(ex, "An error occurred while seeding the database.");
     }
 }
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage();
-}
-
-app.UseErrorWrapping();
-
-app.UseStaticFiles();
-
-app.UseAuthentication();
-
-app.UseHttpsRedirection();
-
-app.UseRouting();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.MapHub<ChatHub>("/Chat");
-
-app.UseSwagger();
-
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Event Hub API V1");
-});
 
 app.Run();
 

@@ -32,6 +32,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
+        [NotMapped]
         [ForeignKey("EmailContentId")]
         public virtual EmailContent EmailContent { get; set; } = null!;
     }

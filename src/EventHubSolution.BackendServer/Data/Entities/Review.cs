@@ -33,9 +33,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
+        [NotMapped]
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
 
+        [NotMapped]
         [ForeignKey("UserId")]
         public virtual User User { get; set; } = null!;
     }

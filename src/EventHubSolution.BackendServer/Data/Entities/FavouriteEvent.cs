@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace EventHubSolution.BackendServer.Data.Entities
 {
     [Table("FavouriteEvents")]
+    [PrimaryKey("UserId", "EventId")]
     public class FavouriteEvent
     {
         [MaxLength(50)]
@@ -17,9 +18,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Required]
         public string EventId { get; set; }
 
+        [NotMapped]
         [ForeignKey("UserId")]
         public virtual User User { get; set; } = null!;
 
+        [NotMapped]
         [ForeignKey("EventId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;

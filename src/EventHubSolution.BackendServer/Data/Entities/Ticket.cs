@@ -1,5 +1,5 @@
-﻿using EventHubSolution.BackendServer.Data.Interfaces;
-using EventHubSolution.ViewModels.Constants;
+﻿using EventHubSolution.ViewModels.Constants;
+using EventHubSolution.BackendServer.Data.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -52,13 +52,16 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
+        [NotMapped]
         [ForeignKey("TicketTypeId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual TicketType TicketType { get; set; } = null!;
 
+        [NotMapped]
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
 
+        [NotMapped]
         [ForeignKey("PaymentId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Payment Payment { get; set; } = null!;

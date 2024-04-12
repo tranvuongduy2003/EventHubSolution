@@ -5,7 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
-    public class CommandsController : BaseController
+    [Route("api/commands")]
+    [ApiController]
+    public class CommandsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
 

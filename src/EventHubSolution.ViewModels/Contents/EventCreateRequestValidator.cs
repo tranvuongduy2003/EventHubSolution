@@ -1,6 +1,12 @@
-﻿namespace EventHubSolution.ViewModels.Contents
+﻿using FluentValidation;
+
+namespace EventHubSolution.ViewModels.Contents
 {
-    public class EventCreateRequestValidator
+    public class EventCreateRequestValidator : AbstractValidator<EventCreateRequest>
     {
+        public EventCreateRequestValidator()
+        {
+            
+        }
     }
 }

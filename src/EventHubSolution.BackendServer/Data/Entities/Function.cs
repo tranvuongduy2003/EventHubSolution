@@ -27,7 +27,14 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "varchar(50)")]
         public string? ParentId { get; set; }
 
+        [NotMapped]
         [ForeignKey("ParentId")]
         public virtual Function Parent { get; set; } = null!;
+
+        [NotMapped]
+        public virtual ICollection<CommandInFunction> CommandInFunctions { get; set; } = new List<CommandInFunction>();
+
+        [NotMapped]
+        public virtual ICollection<Permission> Permissions { get; set; } = new List<Permission>();
     }
 }

@@ -14,6 +14,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [Required]
         [MaxLength(50)]
+        [Column(TypeName = "varchar(50)")]
+        public string EventId { get; set; }
+
+        [Required]
+        [MaxLength(50)]
         public string City { get; set; }
 
         [Required]
@@ -29,5 +34,9 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [Required]
         public double LatitudeY { get; set; }
+
+        [NotMapped]
+        [ForeignKey("EventId")]
+        public virtual Event Event { get; set; } = null!;
     }
 }

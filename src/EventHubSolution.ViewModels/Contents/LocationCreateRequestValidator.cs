@@ -1,6 +1,12 @@
-﻿namespace EventHubSolution.ViewModels.Contents
+﻿using FluentValidation;
+
+namespace EventHubSolution.ViewModels.Contents
 {
-    public class LocationCreateRequestValidator
+    public class LocationCreateRequestValidator : AbstractValidator<LocationCreateRequest>
     {
+        public LocationCreateRequestValidator()
+        {
+            
+        }
     }
 }

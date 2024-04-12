@@ -27,6 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\EventHubSolution.BackendServer\EventHubSolution.BackendServer.csproj" />
     <ProjectReference Include="..\..\src\EventHubSolution.ViewModels\EventHubSolution.ViewModels.csproj" />
   </ItemGroup>
 

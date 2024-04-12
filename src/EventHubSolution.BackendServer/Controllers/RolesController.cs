@@ -1,9 +1,8 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.BackendServer.Constants;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +11,9 @@ using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
-    public class RolesController : BaseController
+    [Route("api/roles")]
+    [ApiController]
+    public class RolesController : ControllerBase
     {
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ApplicationDbContext _db;

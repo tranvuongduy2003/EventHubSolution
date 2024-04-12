@@ -32,7 +32,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Range(0, Double.PositiveInfinity)]
         public int? NumberOfSoldTickets { get; set; } = 0;
 
+        [NotMapped]
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
+
+        [NotMapped]
+        public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
     }
 }

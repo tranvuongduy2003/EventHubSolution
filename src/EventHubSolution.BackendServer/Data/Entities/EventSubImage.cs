@@ -23,9 +23,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "varchar(50)")]
         public string ImageId { get; set; }
 
+        [NotMapped]
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
 
+        [NotMapped]
         [ForeignKey("ImageId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual FileStorage Image { get; set; } = null!;

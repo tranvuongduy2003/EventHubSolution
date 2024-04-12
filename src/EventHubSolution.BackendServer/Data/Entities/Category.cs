@@ -30,7 +30,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
+        [NotMapped]
         [ForeignKey("IconImageId")]
         public virtual FileStorage IconImage { get; set; } = null!;
+
+        [NotMapped]
+        public virtual ICollection<EventCategory> EventCategories { get; set; } = new List<EventCategory>();
     }
 }

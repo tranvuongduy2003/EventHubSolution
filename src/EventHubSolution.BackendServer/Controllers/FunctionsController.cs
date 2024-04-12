@@ -1,9 +1,8 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.BackendServer.Constants;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +10,9 @@ using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
-    public class FunctionsController : BaseController
+    [Route("api/functions")]
+    [ApiController]
+    public class FunctionsController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
 

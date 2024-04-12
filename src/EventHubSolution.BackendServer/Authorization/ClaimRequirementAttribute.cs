@@ -1,4 +1,4 @@
-﻿using EventHubSolution.BackendServer.Constants;
+﻿using EventHubSolution.ViewModels.Constants;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventHubSolution.BackendServer.Authorization

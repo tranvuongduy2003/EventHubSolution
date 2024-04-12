@@ -1,9 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
 {
     [Table("EventCategories")]
+    [PrimaryKey("CategoryId", "EventId")]
     public class EventCategory
     {
         [MaxLength(50)]
@@ -16,9 +18,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Required]
         public string EventId { get; set; }
 
+        [NotMapped]
         [ForeignKey("CategoryId")]
         public virtual Category Category { get; set; } = null!;
 
+        [NotMapped]
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
     }

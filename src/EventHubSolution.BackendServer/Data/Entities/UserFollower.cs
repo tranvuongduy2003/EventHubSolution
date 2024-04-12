@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace EventHubSolution.BackendServer.Data.Entities
 {
     [Table("UserFollowers")]
+    [PrimaryKey("FollowerId", "FollowedId")]
     public class UserFollower
     {
         [MaxLength(50)]
@@ -17,10 +18,12 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Required]
         public string FollowedId { get; set; }
 
+        [NotMapped]
         [ForeignKey("FollowerId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Follower { get; set; } = null!;
 
+        [NotMapped]
         [ForeignKey("FollowedId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Followed { get; set; } = null!;

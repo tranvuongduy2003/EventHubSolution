@@ -19,7 +19,7 @@ namespace EventHubSolution.BackendServer.Hubs
             await Clients.Group(conn.ChatRoom).SendAsync("ReceiveMessage", conn.UserName, $"{conn.UserName} has joined {conn.ChatRoom}");
         }
 
-        //public async Task SendMessage(string msg)
+        //public async Task SendMessage(PageOrder msg)
         //{
         //    if (_shared.connection.TryGetValue(Context.ConnectionId, out UserConnection conn))
         //    {
