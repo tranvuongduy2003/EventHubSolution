@@ -74,7 +74,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 await _signInManager.PasswordSignInAsync(user, request.Password, false, false);
 
                 //TODO: If user was found, generate JWT Token
-                var accessToken = _tokenService.GenerateAccessToken(user);
+                var accessToken = await _tokenService.GenerateAccessTokenAsync(user);
                 var refreshToken = await _userManager.GenerateUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH);
 
                 await _userManager.SetAuthenticationTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH, refreshToken);
@@ -101,24 +101,24 @@ namespace EventHubSolution.BackendServer.Controllers
             var user = _userManager.Users.FirstOrDefault(u => u.Email == request.Identity || u.PhoneNumber == request.Identity);
 
             if (user == null)
-                return NotFound(new ApiNotFoundResponse("Email or phone number does not exist"));
+                return NotFound(new ApiNotFoundResponse("Invalid credentials"));
 
             if (user.Status == UserStatus.INACTIVE)
             {
-                return Unauthorized(new ApiUnauthorizedResponse("Your account is disabled"));
+                return Unauthorized(new ApiUnauthorizedResponse("Invalid credentials"));
             }
 
             bool isValid = await _userManager.CheckPasswordAsync(user, request.Password);
 
             if (isValid == false)
             {
-                return Unauthorized(new ApiUnauthorizedResponse("Wrong password"));
+                return Unauthorized(new ApiUnauthorizedResponse("Invalid credentials"));
             }
 
             await _signInManager.PasswordSignInAsync(user, request.Password, false, false);
 
             //TODO: If user was found, generate JWT Token
-            var accessToken = _tokenService.GenerateAccessToken(user);
+            var accessToken = await _tokenService.GenerateAccessTokenAsync(user);
             var refreshToken = await _userManager.GenerateUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH);
 
             await _userManager.SetAuthenticationTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH, refreshToken);
@@ -128,24 +128,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 AccessToken = accessToken,
                 RefreshToken = refreshToken
             };
-
-            var options = new CookieOptions()
-            {
-                //Domain = settings.AppDomain,
-                Domain = "http://localhost:5173/",
-                Expires = DateTime.UtcNow.AddMinutes(5)
-            };
-
-            Response.Cookies.Append(
-                "AuthTokenHolder",
-                JsonConvert.SerializeObject(signInResponse, new JsonSerializerSettings
-                {
-                    ContractResolver = new DefaultContractResolver
-                    {
-                        NamingStrategy = new CamelCaseNamingStrategy()
-                    },
-                    Formatting = Formatting.Indented
-                }), options);
 
             return Ok(new ApiOkResponse(signInResponse));
         }
@@ -221,7 +203,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 await _signInManager.SignInAsync(user, false);
 
                 //TODO: Generate JWT Token
-                var accessToken = _tokenService.GenerateAccessToken(user);
+                var accessToken = await _tokenService.GenerateAccessTokenAsync(user);
                 var refreshToken = await _userManager.GenerateUserTokenAsync(user, info.LoginProvider, TokenTypes.REFRESH);
 
                 await _userManager.SetAuthenticationTokenAsync(user, info.LoginProvider, TokenTypes.REFRESH, refreshToken);
@@ -282,7 +264,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
             }
 
-            var newAccessToken = _tokenService.GenerateAccessToken(user);
+            var newAccessToken = await _tokenService.GenerateAccessTokenAsync(user);
             var newRefreshToken = await _userManager.GenerateUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH);
 
             SignInResponse refreshResponse = new SignInResponse()

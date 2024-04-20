@@ -1,7 +1,12 @@
-﻿using EventHubSolution.BackendServer.Data.Entities;
+﻿using EventHubSolution.BackendServer.Data;
+using EventHubSolution.BackendServer.Data.Entities;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.General;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -11,23 +16,42 @@ namespace EventHubSolution.BackendServer.Services
     public class TokenService : ITokenService
     {
         private readonly JwtOptions _jwtOptions;
+        private readonly ApplicationDbContext _context;
+        private readonly UserManager<User> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
 
-        public TokenService(IOptions<JwtOptions> jwtOptions)
+        public TokenService(IOptions<JwtOptions> jwtOptions, ApplicationDbContext context, UserManager<User> userManager, RoleManager<IdentityRole> roleManager)
         {
             _jwtOptions = jwtOptions.Value;
+            _context = context;
+            _userManager = userManager;
+            _roleManager = roleManager;
         }
 
-        public string GenerateAccessToken(User user)
+        public async Task<string> GenerateAccessTokenAsync(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
 
             var key = Encoding.ASCII.GetBytes(_jwtOptions.Secret);
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var query = from p in _context.Permissions
+                        join c in _context.Commands
+                        on p.CommandId equals c.Id
+                        join f in _context.Functions
+                                    on p.FunctionId equals f.Id
+                        join r in _roleManager.Roles on p.RoleId equals r.Id
+                        where roles.Contains(r.Name)
+                        select f.Id + "_" + c.Id;
+            var permissions = await query.Distinct().ToListAsync();
 
             var claimList = new List<Claim>
             {
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.MobilePhone, user.PhoneNumber ?? ""),
                 new Claim(JwtRegisteredClaimNames.Jti, user.Id),
+                new Claim(ClaimTypes.Role, string.Join(";", roles)),
+                new Claim(SystemConstants.Claims.Permissions, JsonConvert.SerializeObject(permissions)),
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor

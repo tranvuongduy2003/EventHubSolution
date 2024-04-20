@@ -5,7 +5,7 @@ namespace EventHubSolution.BackendServer.Services
 {
     public interface ITokenService
     {
-        string GenerateAccessToken(User user);
+        Task<string> GenerateAccessTokenAsync(User user);
         string GenerateRefreshToken();
         ClaimsPrincipal? GetPrincipalFromToken(string token);
         bool ValidateTokenExpire(string token);
