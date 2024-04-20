@@ -1,7 +1,7 @@
 ﻿using EventHubSolution.ViewModels.Constants;
 using System.ComponentModel;
 
-namespace EventHubSolution.ViewModels.Systems
+namespace EventHubSolution.ViewModels.General
 {
     public class PaginationFilter
     {
@@ -17,7 +17,7 @@ namespace EventHubSolution.ViewModels.Systems
             }
             set
             {
-                _page = (value < 1) ? 1 : value;
+                _page = value < 1 ? 1 : value;
             }
         }
 
@@ -32,7 +32,7 @@ namespace EventHubSolution.ViewModels.Systems
             }
             set
             {
-                _size = (value > maxPageSize) ? maxPageSize : value;
+                _size = value > maxPageSize ? maxPageSize : value;
             }
         }
 

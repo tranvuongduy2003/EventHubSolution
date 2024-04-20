@@ -1,6 +1,6 @@
 ﻿using Azure.Storage;
 using Azure.Storage.Blobs;
-using EventHubSolution.ViewModels.Systems;
+using EventHubSolution.ViewModels.General;
 
 namespace EventHubSolution.BackendServer.Services
 {

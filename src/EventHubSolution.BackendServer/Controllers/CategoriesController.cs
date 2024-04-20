@@ -1,11 +1,11 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
-using EventHubSolution.ViewModels.Systems;
+using EventHubSolution.ViewModels.General;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 
@@ -27,6 +27,7 @@ namespace EventHubSolution.BackendServer.Controllers
         [HttpPost]
         [ClaimRequirement(FunctionCode.CONTENT_CATEGORY, CommandCode.CREATE)]
         [ApiValidationFilter]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> PostCategory([FromForm] CategoryCreateRequest request)
         {
             var category = new Category()
@@ -100,7 +101,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         [HttpGet("{id}")]
@@ -124,12 +125,13 @@ namespace EventHubSolution.BackendServer.Controllers
                 UpdatedAt = category.UpdatedAt
             };
 
-            return Ok(categoryVm);
+            return Ok(new ApiOkResponse(categoryVm));
         }
 
         [HttpPut("{id}")]
         [ClaimRequirement(FunctionCode.CONTENT_CATEGORY, CommandCode.UPDATE)]
         [ApiValidationFilter]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> PutCategory(string id, [FromForm] CategoryCreateRequest request)
         {
             var category = await _db.Categories.FindAsync(id);
@@ -177,7 +179,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     CreatedAt = category.CreatedAt,
                     UpdatedAt = category.UpdatedAt
                 };
-                return Ok(categoryvm);
+                return Ok(new ApiOkResponse(categoryvm));
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }

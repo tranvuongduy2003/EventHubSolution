@@ -1,5 +1,5 @@
 ﻿using EventHubSolution.BackendServer.Data.Entities;
-using EventHubSolution.ViewModels.Systems;
+using EventHubSolution.ViewModels.General;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;

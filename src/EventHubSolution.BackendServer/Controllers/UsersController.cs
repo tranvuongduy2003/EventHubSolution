@@ -1,10 +1,11 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
+using EventHubSolution.ViewModels.General;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +38,7 @@ namespace EventHubSolution.BackendServer.Controllers
         [HttpPost]
         [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.CREATE)]
         [ApiValidationFilter]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> PostUser([FromForm] UserCreateRequest request)
         {
             var user = new User()
@@ -99,29 +101,29 @@ namespace EventHubSolution.BackendServer.Controllers
             }
 
             var userVms = (from u in users
-                join f in _db.FileStorages
-                    on u.AvatarId equals f.Id
-                    into UsersWithAvatar
-                from uwa in UsersWithAvatar.DefaultIfEmpty()
-                select new UserVm
-                {
-                    Id = u.Id,
-                    UserName = u.UserName,
-                    Email = u.Email,
-                    PhoneNumber = u.PhoneNumber,
-                    Dob = u.Dob,
-                    FullName = u.FullName,
-                    Gender = u.Gender,
-                    Bio = u.Bio,
-                    NumberOfCreatedEvents = u.NumberOfCreatedEvents,
-                    NumberOfFavourites = u.NumberOfFavourites,
-                    NumberOfFolloweds = u.NumberOfFolloweds,
-                    NumberOfFollowers = u.NumberOfFollowers,
-                    Status = u.Status,
-                    Avatar = uwa?.FilePath,
-                    CreatedAt = u.CreatedAt,
-                    UpdatedAt = u.UpdatedAt
-                }).ToList();
+                           join f in _db.FileStorages
+                               on u.AvatarId equals f.Id
+                               into UsersWithAvatar
+                           from uwa in UsersWithAvatar.DefaultIfEmpty()
+                           select new UserVm
+                           {
+                               Id = u.Id,
+                               UserName = u.UserName,
+                               Email = u.Email,
+                               PhoneNumber = u.PhoneNumber,
+                               Dob = u.Dob,
+                               FullName = u.FullName,
+                               Gender = u.Gender,
+                               Bio = u.Bio,
+                               NumberOfCreatedEvents = u.NumberOfCreatedEvents,
+                               NumberOfFavourites = u.NumberOfFavourites,
+                               NumberOfFolloweds = u.NumberOfFolloweds,
+                               NumberOfFollowers = u.NumberOfFollowers,
+                               Status = u.Status,
+                               Avatar = uwa?.FilePath,
+                               CreatedAt = u.CreatedAt,
+                               UpdatedAt = u.UpdatedAt
+                           }).ToList();
 
             var pagination = new Pagination<UserVm>
             {
@@ -131,7 +133,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         [HttpGet("{id}")]
@@ -166,7 +168,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt
             };
-            return Ok(userVm);
+            return Ok(new ApiOkResponse(userVm));
         }
 
         [HttpPut("{id}")]
@@ -253,7 +255,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     UpdatedAt = user.UpdatedAt
                 };
 
-                return Ok(userVm);
+                return Ok(new ApiOkResponse(userVm));
             }
 
             return BadRequest(new ApiBadRequestResponse(result));
@@ -267,25 +269,25 @@ namespace EventHubSolution.BackendServer.Controllers
             var user = await _userManager.FindByIdAsync(userId);
             var roles = await _userManager.GetRolesAsync(user);
             var query = from f in _db.Functions
-                join p in _db.Permissions
-                    on f.Id equals p.FunctionId
-                join r in _roleManager.Roles on p.RoleId equals r.Id
-                join a in _db.Commands
-                    on p.CommandId equals a.Id
-                where roles.Contains(r.Name) && a.Id == "VIEW"
-                select new FunctionVm
-                {
-                    Id = f.Id,
-                    Name = f.Name,
-                    Url = f.Url,
-                    ParentId = f.ParentId,
-                    SortOrder = f.SortOrder,
-                };
+                        join p in _db.Permissions
+                            on f.Id equals p.FunctionId
+                        join r in _roleManager.Roles on p.RoleId equals r.Id
+                        join a in _db.Commands
+                            on p.CommandId equals a.Id
+                        where roles.Contains(r.Name) && a.Id == "VIEW"
+                        select new FunctionVm
+                        {
+                            Id = f.Id,
+                            Name = f.Name,
+                            Url = f.Url,
+                            ParentId = f.ParentId,
+                            SortOrder = f.SortOrder,
+                        };
             var data = await query.Distinct()
                 .OrderBy(x => x.ParentId)
                 .ThenBy(x => x.SortOrder)
                 .ToListAsync();
-            return Ok(data);
+            return Ok(new ApiOkResponse(data));
         }
 
         [HttpGet("{userId}/reviews")]
@@ -341,7 +343,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         [HttpGet("{userId}/events/favourites")]
@@ -355,29 +357,29 @@ namespace EventHubSolution.BackendServer.Controllers
                 return NotFound(new ApiNotFoundResponse($"User with id {userId} is not existed."));
 
             var eventCategories = (from _eventCategory in _db.EventCategories
-                    join _categoryVm in (from _category in _db.Categories
-                            join _fileStorage in _db.FileStorages
-                                on _category.IconImageId equals _fileStorage.Id
-                                into joinedCategories
-                            from _joinedCategory in joinedCategories.DefaultIfEmpty()
-                            select new CategoryVm
-                            {
-                                Id = _category.Id,
-                                Color = _category.Color,
-                                IconImage = _joinedCategory != null ? _joinedCategory.FilePath : "",
-                                Name = _category.Name,
-                                CreatedAt = _category.CreatedAt,
-                                UpdatedAt = _category.UpdatedAt,
-                            })
-                        on _eventCategory.CategoryId equals _categoryVm.Id
-                        into joinedEventCategories
-                    from _joinedEventCategory in joinedEventCategories.DefaultIfEmpty()
-                    select new
-                    {
-                        EventId = _eventCategory.EventId,
-                        CategoryId = _eventCategory.CategoryId,
-                        CategoryVm = _joinedEventCategory,
-                    }
+                                   join _categoryVm in (from _category in _db.Categories
+                                                        join _fileStorage in _db.FileStorages
+                                                            on _category.IconImageId equals _fileStorage.Id
+                                                            into joinedCategories
+                                                        from _joinedCategory in joinedCategories.DefaultIfEmpty()
+                                                        select new CategoryVm
+                                                        {
+                                                            Id = _category.Id,
+                                                            Color = _category.Color,
+                                                            IconImage = _joinedCategory != null ? _joinedCategory.FilePath : "",
+                                                            Name = _category.Name,
+                                                            CreatedAt = _category.CreatedAt,
+                                                            UpdatedAt = _category.UpdatedAt,
+                                                        })
+                                       on _eventCategory.CategoryId equals _categoryVm.Id
+                                       into joinedEventCategories
+                                   from _joinedEventCategory in joinedEventCategories.DefaultIfEmpty()
+                                   select new
+                                   {
+                                       EventId = _eventCategory.EventId,
+                                       CategoryId = _eventCategory.CategoryId,
+                                       CategoryVm = _joinedEventCategory,
+                                   }
                 );
 
             var eventDatas = _db.FavouriteEvents
@@ -392,52 +394,52 @@ namespace EventHubSolution.BackendServer.Controllers
                 .ToList();
 
             var joinedEventVms = (from _event in eventDatas
-                join _fileStorage in _db.FileStorages
-                    on _event.CoverImageId equals _fileStorage.Id
-                    into joinedCoverImageEvents
-                from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
-                join _location in _db.Locations
-                    on _event.Id equals _location.EventId
-                    into joinedLocationEvents
-                from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
-                join _user in _userManager.Users
-                    on _event.CreatorId equals _user.Id
-                    into joinedCreatorEvents
-                from _joinedCreatorEvent in joinedCreatorEvents.DefaultIfEmpty()
-                select new EventVm
-                {
-                    Id = _event.Id,
-                    Name = _event.Name,
-                    CreatorName = _joinedCreatorEvent.FullName,
-                    Description = _event.Description,
-                    CoverImageId = _event.CoverImageId,
-                    CoverImage = _joinedCoverImageEvent.FilePath,
-                    CreatorId = _event.CreatorId,
-                    LocationId = _joinedLocationEvent.Id,
-                    StartTime = _event.StartTime,
-                    EndTime = _event.EndTime,
-                    NumberOfFavourites = _event.NumberOfFavourites,
-                    NumberOfShares = _event.NumberOfShares,
-                    NumberOfSoldTickets = _event.NumberOfSoldTickets,
-                    Promotion = _event.Promotion,
-                    Status = _event.Status,
-                    LocationString = _joinedLocationEvent != null
-                        ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}"
-                        : "",
-                    CreatedAt = _event.CreatedAt,
-                    UpdatedAt = _event.UpdatedAt
-                }).ToList();
+                                  join _fileStorage in _db.FileStorages
+                                      on _event.CoverImageId equals _fileStorage.Id
+                                      into joinedCoverImageEvents
+                                  from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
+                                  join _location in _db.Locations
+                                      on _event.Id equals _location.EventId
+                                      into joinedLocationEvents
+                                  from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
+                                  join _user in _userManager.Users
+                                      on _event.CreatorId equals _user.Id
+                                      into joinedCreatorEvents
+                                  from _joinedCreatorEvent in joinedCreatorEvents.DefaultIfEmpty()
+                                  select new EventVm
+                                  {
+                                      Id = _event.Id,
+                                      Name = _event.Name,
+                                      CreatorName = _joinedCreatorEvent.FullName,
+                                      Description = _event.Description,
+                                      CoverImageId = _event.CoverImageId,
+                                      CoverImage = _joinedCoverImageEvent.FilePath,
+                                      CreatorId = _event.CreatorId,
+                                      LocationId = _joinedLocationEvent.Id,
+                                      StartTime = _event.StartTime,
+                                      EndTime = _event.EndTime,
+                                      NumberOfFavourites = _event.NumberOfFavourites,
+                                      NumberOfShares = _event.NumberOfShares,
+                                      NumberOfSoldTickets = _event.NumberOfSoldTickets,
+                                      Promotion = _event.Promotion,
+                                      Status = _event.Status,
+                                      LocationString = _joinedLocationEvent != null
+                                          ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}"
+                                          : "",
+                                      CreatedAt = _event.CreatedAt,
+                                      UpdatedAt = _event.UpdatedAt
+                                  }).ToList();
 
             var joinedTicketTypeEventVms = (from _eventVm in joinedEventVms
-                    join _ticketType in _db.TicketTypes
-                        on _eventVm.Id equals _ticketType.EventId
-                        into joinedTicketTypeEvents
-                    from _joinedTicketTypeEvent in joinedTicketTypeEvents.DefaultIfEmpty()
-                    select new
-                    {
-                        _eventVm,
-                        _joinedTicketTypeEvent
-                    })
+                                            join _ticketType in _db.TicketTypes
+                                                on _eventVm.Id equals _ticketType.EventId
+                                                into joinedTicketTypeEvents
+                                            from _joinedTicketTypeEvent in joinedTicketTypeEvents.DefaultIfEmpty()
+                                            select new
+                                            {
+                                                _eventVm,
+                                                _joinedTicketTypeEvent
+                                            })
                 .GroupBy(joinedTicketTypeEvent => joinedTicketTypeEvent._eventVm)
                 .AsEnumerable()
                 .Select(groupedEventVm =>
@@ -454,15 +456,15 @@ namespace EventHubSolution.BackendServer.Controllers
                 .ToList();
 
             var eventVms = (from _eventVm in joinedTicketTypeEventVms
-                    join _eventCategory in eventCategories
-                        on _eventVm.Id equals _eventCategory.EventId
-                        into joinedCategoryEvents
-                    from _joinedCategoryEvent in joinedCategoryEvents.DefaultIfEmpty()
-                    select new
-                    {
-                        _eventVm,
-                        _joinedCategoryEvent
-                    })
+                            join _eventCategory in eventCategories
+                                on _eventVm.Id equals _eventCategory.EventId
+                                into joinedCategoryEvents
+                            from _joinedCategoryEvent in joinedCategoryEvents.DefaultIfEmpty()
+                            select new
+                            {
+                                _eventVm,
+                                _joinedCategoryEvent
+                            })
                 .GroupBy(joinedEvent => joinedEvent._eventVm)
                 .Select(groupedEvent =>
                 {
@@ -536,7 +538,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         #region Followers
@@ -608,7 +610,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return Ok();
+                return Ok(new ApiOkResponse());
             }
             else
             {

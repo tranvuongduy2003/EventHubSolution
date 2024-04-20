@@ -1,8 +1,9 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
+using EventHubSolution.ViewModels.Constants;
+using EventHubSolution.ViewModels.General;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -86,7 +87,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         [HttpGet("{id}")]
@@ -102,7 +103,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 Id = role.Id,
                 Name = role.Name,
             };
-            return Ok(roleVm);
+            return Ok(new ApiOkResponse(roleVm));
         }
 
         [HttpPut("{id}")]
@@ -146,7 +147,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     Id = role.Id,
                     Name = role.Name
                 };
-                return Ok(rolevm);
+                return Ok(new ApiOkResponse(rolevm));
             }
             return BadRequest(new ApiBadRequestResponse(result));
         }
@@ -169,7 +170,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                   RoleId = p.RoleId
                               };
 
-            return Ok(await permissions.ToListAsync());
+            return Ok(new ApiOkResponse(await permissions.ToListAsync()));
         }
 
         [HttpPut("{roleId}/permissions")]

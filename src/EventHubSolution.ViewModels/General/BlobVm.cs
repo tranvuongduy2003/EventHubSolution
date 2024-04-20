@@ -1,4 +1,4 @@
-﻿namespace EventHubSolution.ViewModels.Systems
+﻿namespace EventHubSolution.ViewModels.General
 {
     public class BlobVm
     {

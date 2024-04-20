@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CodeAnalysis;
 using Newtonsoft.Json;
+using EventHubSolution.ViewModels;
 
 namespace EventHubSolution.BackendServer.UnitTest.Controllers
 {

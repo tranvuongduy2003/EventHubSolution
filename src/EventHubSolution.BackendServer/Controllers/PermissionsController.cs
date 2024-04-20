@@ -1,7 +1,8 @@
 ﻿using Dapper;
 using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
+using EventHubSolution.BackendServer.Helpers;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -52,7 +53,7 @@ namespace EventHubSolution.BackendServer.Controllers
                         order BY f.ParentId";
 
                 var result = await conn.QueryAsync<PermissionScreenVm>(sql, null, null, 120, CommandType.Text);
-                return Ok(result.ToList());
+                return Ok(new ApiOkResponse(result.ToList()));
             }
         }
     }

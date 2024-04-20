@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using MockQueryable.Moq;
 using Moq;
 using Newtonsoft.Json;
+using EventHubSolution.ViewModels;
 
 namespace EventHubSolution.BackendServer.UnitTest.Controllers
 {

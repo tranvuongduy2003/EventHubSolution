@@ -1,8 +1,9 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
+using EventHubSolution.ViewModels.Constants;
+using EventHubSolution.ViewModels.General;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -93,7 +94,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         [HttpGet("{id}")]
@@ -112,7 +113,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 SortOrder = function.SortOrder,
                 ParentId = function.ParentId,
             };
-            return Ok(functionVm);
+            return Ok(new ApiOkResponse(functionVm));
         }
 
         [HttpPut("{id}")]
@@ -160,7 +161,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     SortOrder = function.SortOrder,
                     ParentId = function.ParentId,
                 };
-                return Ok(functionvm);
+                return Ok(new ApiOkResponse(functionvm));
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }
@@ -190,7 +191,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 Name = x.Name,
             }).ToListAsync();
 
-            return Ok(commandVms);
+            return Ok(new ApiOkResponse(commandVms));
         }
 
         [HttpGet("{functionId}/commands/not-in-function")]
@@ -218,7 +219,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 Name = x.Name,
             }).ToListAsync();
 
-            return Ok(commandVms);
+            return Ok(new ApiOkResponse(commandVms));
         }
 
         [HttpPost("{functionId}/commands")]
@@ -266,7 +267,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return Ok(entity);
+                return Ok(new ApiOkResponse(entity));
             }
             else
             {

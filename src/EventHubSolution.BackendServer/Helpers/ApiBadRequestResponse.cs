@@ -5,8 +5,6 @@ namespace EventHubSolution.BackendServer.Helpers
 {
     public class ApiBadRequestResponse : ApiResponse
     {
-        public IEnumerable<string> Errors { get; }
-
         public ApiBadRequestResponse(ModelStateDictionary modelState)
             : base(400)
         {

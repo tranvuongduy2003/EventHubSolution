@@ -1,4 +1,5 @@
-﻿using EventHubSolution.ViewModels.Systems;
+﻿using EventHubSolution.ViewModels;
+using EventHubSolution.ViewModels.General;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;

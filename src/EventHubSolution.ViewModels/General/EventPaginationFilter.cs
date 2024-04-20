@@ -1,7 +1,7 @@
 ﻿using EventHubSolution.ViewModels.Constants;
 using System.ComponentModel;
 
-namespace EventHubSolution.ViewModels.Systems
+namespace EventHubSolution.ViewModels.General
 {
     public class EventPaginationFilter : PaginationFilter
     {

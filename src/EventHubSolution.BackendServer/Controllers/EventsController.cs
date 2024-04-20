@@ -1,11 +1,11 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
-using EventHubSolution.ViewModels.Systems;
+using EventHubSolution.ViewModels.General;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,8 +31,9 @@ namespace EventHubSolution.BackendServer.Controllers
 
         #region Events
         [HttpPost]
-        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.CREATE)]
+        //[ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.CREATE)]
         [ApiValidationFilter]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> PostEvent([FromForm] EventCreateRequest request)
         {
             var eventData = new Event()
@@ -291,11 +292,10 @@ namespace EventHubSolution.BackendServer.Controllers
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         [HttpGet("{id}")]
-        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.VIEW)]
         public async Task<IActionResult> GetById(string id)
         {
             var eventData = await _db.Events.FindAsync(id);
@@ -419,12 +419,13 @@ namespace EventHubSolution.BackendServer.Controllers
             };
             eventDataVm.Creator = creatorVm;
 
-            return Ok(eventDataVm);
+            return Ok(new ApiOkResponse(eventDataVm));
         }
 
         [HttpPut("{id}")]
         [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.UPDATE)]
         [ApiValidationFilter]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> PutEvent(string id, [FromForm] EventCreateRequest request)
         {
             var eventData = await _db.Events.FindAsync(id);
@@ -530,7 +531,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return Ok();
+                return Ok(new ApiOkResponse());
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }
@@ -634,7 +635,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         [HttpGet("{eventId}/reviews/{reviewId}")]
@@ -669,7 +670,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 CreatedAt = review.CreatedAt,
                 UpdatedAt = review.UpdatedAt,
             };
-            return Ok(reviewVm);
+            return Ok(new ApiOkResponse(reviewVm));
         }
 
         [HttpPut("{eventId}/reviews/{reviewId}")]
@@ -709,7 +710,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return Ok();
+                return Ok(new ApiOkResponse());
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }
@@ -782,7 +783,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return Ok();
+                return Ok(new ApiOkResponse());
             }
             else
             {

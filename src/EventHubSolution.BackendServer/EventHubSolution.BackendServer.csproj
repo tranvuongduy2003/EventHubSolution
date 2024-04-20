@@ -6,7 +6,6 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<InvariantGlobalization>false</InvariantGlobalization>
 		<AssemblyName>EventHubSolution.BackendServer</AssemblyName>
-		<UserSecretsId>a36b17e3-ab27-442a-9e4e-4d47ac9ce733</UserSecretsId>
 	</PropertyGroup>
 
 	<ItemGroup>

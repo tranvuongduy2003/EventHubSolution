@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + React + TS</title>
+  </head>
+  <body>
+    <form
+      method="POST"
+      action="https://localhost:8080/api/auth/external-login?provider=Google&returnUrl=http://localhost:5173"
+    >
+      <button
+        type="submit"
+        name="provider"
+        value="Google"
+        title="{`Login"
+        using
+        Google`}
+      >
+        Google
+      </button>
+    </form>
+
+    <form
+      method="POST"
+      action="https://localhost:8080/api/auth/external-login?provider=Facebook&returnUrl=http://localhost:5173"
+    >
+      <button
+        type="submit"
+        name="provider"
+        value="Facebook"
+        title="{`Login"
+        using
+        Facebook`}
+      >
+        Facebook
+      </button>
+    </form>
+  </body>
+</html>

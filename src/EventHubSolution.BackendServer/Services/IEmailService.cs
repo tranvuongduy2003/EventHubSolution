@@ -1,4 +1,4 @@
-﻿using EventHubSolution.ViewModels.Systems;
+﻿using EventHubSolution.ViewModels.General;
 
 namespace EventHubSolution.BackendServer.Services
 {

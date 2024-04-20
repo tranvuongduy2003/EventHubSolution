@@ -1,4 +1,5 @@
 ﻿using EventHubSolution.BackendServer.Data;
+using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -27,7 +28,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 Name = f.Name,
             }).ToListAsync();
 
-            return Ok(commandVms);
+            return Ok(new ApiOkResponse(commandVms));
         }
 
     }

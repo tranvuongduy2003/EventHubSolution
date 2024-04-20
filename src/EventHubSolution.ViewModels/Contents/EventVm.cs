@@ -1,5 +1,5 @@
 ﻿using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.ViewModels.Systems;
+using EventHubSolution.ViewModels.General;
 
 namespace EventHubSolution.ViewModels.Contents
 {

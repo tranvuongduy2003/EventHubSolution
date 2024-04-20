@@ -1,46 +1,53 @@
 ﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
-using EventHubSolution.ViewModels.Systems;
+using EventHubSolution.ViewModels.General;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
-    [Route("api/tickets")]
+    [Route("api/payments")]
     [ApiController]
-    public class TicketsController : ControllerBase
+    public class PaymentsController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
 
-        public TicketsController(ApplicationDbContext db)
+        public PaymentsController(ApplicationDbContext db)
         {
             _db = db;
         }
 
         [HttpPost]
-        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.CREATE)]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
         [ApiValidationFilter]
-        public async Task<IActionResult> PostTicket([FromBody] TicketCreateRequest request)
+        public async Task<IActionResult> PostPayment([FromBody] PaymentCreateRequest request)
         {
-            var dbTicket = await _db.Tickets.FindAsync(request.Id);
-            if (dbTicket != null)
-                return BadRequest(new ApiBadRequestResponse($"Ticket with id {request.Id} is existed."));
-
-            var ticket = new Ticket()
+            var payment = new Payment()
             {
                 Id = Guid.NewGuid().ToString(),
+                CustomerName = request.CustomerName,
+                CustomerEmail = request.CustomerEmail,
+                CustomerPhone = request.CustomerPhone,
+                Discount = request.Discount,
+                Status = request.Status,
+                EventId = request.EventId,
+                PaymentMethod = request.PaymentMethod,
+                PaymentSession = request.PaymentSession,
+                TicketQuantity = request.TicketQuantity,
+                TotalPrice = request.TotalPrice,
+                UserId = request.UserId,
+                PaymentIntentId = request.PaymentIntentId
             };
-            _db.Tickets.Add(ticket);
+            _db.Payments.Add(payment);
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(GetById), new { id = ticket.Id }, request);
+                return CreatedAtAction(nameof(GetById), new { id = payment.Id }, request);
             }
             else
             {
@@ -49,69 +56,114 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet]
-        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
-        public async Task<IActionResult> GetTickets([FromQuery] PaginationFilter filter)
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetPayments([FromQuery] PaginationFilter filter)
         {
-            var tickets = _db.Tickets.ToList();
+            var payments = _db.Payments.ToList();
             if (filter.search != null)
             {
-                tickets = tickets.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
+                payments = payments.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
+                                               c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
+                                               c.CustomerPhone.ToLower().Contains(filter.search.ToLower())).ToList();
             }
 
-            tickets = filter.order switch
+            payments = filter.order switch
             {
-                PageOrder.ASC => tickets.OrderBy(c => c.SortOrder).ToList(),
-                PageOrder.DESC => tickets.OrderByDescending(c => c.SortOrder).ToList(),
-                _ => tickets
+                PageOrder.ASC => payments.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => payments.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => payments
             };
 
-            var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
+            var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
-                tickets = tickets.Skip((filter.page - 1) * filter.size)
+                payments = payments.Skip((filter.page - 1) * filter.size)
                     .Take(filter.size).ToList();
             }
 
-            var ticketVms = tickets.Select(f => new TicketVm()
+            var paymentVms = payments.Select(p => new PaymentVm()
             {
+                Id = p.Id,
+                CustomerName = p.CustomerName,
+                CustomerEmail = p.CustomerEmail,
+                CustomerPhone = p.CustomerPhone,
+                Discount = p.Discount,
+                Status = p.Status,
+                EventId = p.EventId,
+                PaymentMethod = p.PaymentMethod,
+                PaymentSession = p.PaymentSession,
+                TicketQuantity = p.TicketQuantity,
+                TotalPrice = p.TotalPrice,
+                UserId = p.UserId,
+                PaymentIntentId = p.PaymentIntentId,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt
             }).ToList();
 
-            var pagination = new Pagination<TicketVm>
+            var pagination = new Pagination<PaymentVm>
             {
-                Items = ticketVms,
+                Items = paymentVms,
                 Metadata = metadata,
             };
 
             Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(pagination);
+            return Ok(new ApiOkResponse(pagination));
         }
 
         [HttpGet("{id}")]
-        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
         public async Task<IActionResult> GetById(string id)
         {
-            var ticket = await _db.Tickets.FindAsync(id);
-            if (ticket == null)
+            var payment = await _db.Payments.FindAsync(id);
+            if (payment == null)
                 return NotFound(new ApiNotFoundResponse(""));
 
-            var ticketVm = new TicketVm()
+            var paymentVm = new PaymentVm()
             {
+                Id = payment.Id,
+                CustomerName = payment.CustomerName,
+                CustomerEmail = payment.CustomerEmail,
+                CustomerPhone = payment.CustomerPhone,
+                Discount = payment.Discount,
+                Status = payment.Status,
+                EventId = payment.EventId,
+                PaymentMethod = payment.PaymentMethod,
+                PaymentSession = payment.PaymentSession,
+                TicketQuantity = payment.TicketQuantity,
+                TotalPrice = payment.TotalPrice,
+                UserId = payment.UserId,
+                PaymentIntentId = payment.PaymentIntentId,
+                CreatedAt = payment.CreatedAt,
+                UpdatedAt = payment.UpdatedAt
             };
-            return Ok(ticketVm);
+            return Ok(new ApiOkResponse(paymentVm));
         }
 
         [HttpPut("{id}")]
-        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.UPDATE)]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.UPDATE)]
         [ApiValidationFilter]
-        public async Task<IActionResult> PutTicket(string id, [FromBody] TicketCreateRequest request)
+        public async Task<IActionResult> PutPayment(string id, [FromBody] PaymentCreateRequest request)
         {
-            var ticket = await _db.Tickets.FindAsync(id);
-            if (ticket == null)
+            var payment = await _db.Payments.FindAsync(id);
+            if (payment == null)
                 return NotFound(new ApiNotFoundResponse(""));
 
-            _db.Tickets.Update(ticket);
+            payment.CustomerName = request.CustomerName;
+            payment.CustomerEmail = request.CustomerEmail;
+            payment.CustomerPhone = request.CustomerPhone;
+            payment.Discount = request.Discount;
+            payment.Status = request.Status;
+            payment.EventId = request.EventId;
+            payment.PaymentMethod = request.PaymentMethod;
+            payment.PaymentSession = request.PaymentSession;
+            payment.TicketQuantity = request.TicketQuantity;
+            payment.TotalPrice = request.TotalPrice;
+            payment.UserId = request.UserId;
+            payment.PaymentIntentId = request.PaymentIntentId;
+
+            _db.Payments.Update(payment);
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
@@ -122,22 +174,35 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpDelete("{id}")]
-        [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.DELETE)]
-        public async Task<IActionResult> DeleteTicket(string id)
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.DELETE)]
+        public async Task<IActionResult> DeletePayment(string id)
         {
-            var ticket = await _db.Tickets.FindAsync(id);
-            if (ticket == null)
+            var payment = await _db.Payments.FindAsync(id);
+            if (payment == null)
                 return NotFound(new ApiNotFoundResponse(""));
 
-            _db.Tickets.Remove(ticket);
+            _db.Payments.Remove(payment);
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
             {
-                var ticketvm = new TicketVm()
+                var paymentvm = new PaymentVm()
                 {
+                    Id = payment.Id,
+                    CustomerName = payment.CustomerName,
+                    CustomerEmail = payment.CustomerEmail,
+                    CustomerPhone = payment.CustomerPhone,
+                    Discount = payment.Discount,
+                    Status = payment.Status,
+                    EventId = payment.EventId,
+                    PaymentMethod = payment.PaymentMethod,
+                    PaymentSession = payment.PaymentSession,
+                    TicketQuantity = payment.TicketQuantity,
+                    TotalPrice = payment.TotalPrice,
+                    UserId = payment.UserId,
+                    PaymentIntentId = payment.PaymentIntentId
                 };
-                return Ok(ticketvm);
+                return Ok(new ApiOkResponse(paymentvm));
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }

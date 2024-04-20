@@ -1,8 +1,8 @@
-﻿using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.BackendServer.Data;
+﻿using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
+using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -147,14 +147,29 @@ namespace EventHubSolution.BackendServer.Controllers
                     Formatting = Formatting.Indented
                 }), options);
 
-            return Ok(signInResponse);
+            return Ok(new ApiOkResponse(signInResponse));
+        }
+
+        [HttpPost("signout")]
+        public async Task<IActionResult> SignOut()
+        {
+            await _signInManager.SignOutAsync();
+
+            Response.Cookies.Delete("AuthTokenHolder");
+
+            return Ok(new ApiOkResponse());
         }
 
         [HttpPost]
         [Route("external-login")]
-        public IActionResult ExternalLogin(string provider, string returnUrl)
+        public async Task<IActionResult> ExternalLoginAsync(string provider, string returnUrl)
         {
-            var redirectUrl = $"https://900b-112-78-7-6.ngrok-free.app/api/Auth/external-auth-callback";
+            if (User.Identity != null)
+            {
+                await _signInManager.SignOutAsync();
+            }
+
+            var redirectUrl = $"https://eventhubsolutionbackendserverplan.azurewebsites.net/api/auth/external-auth-callback?returnUrl=${returnUrl}";
             var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
             properties.AllowRefresh = true;
             return Challenge(properties, provider);
@@ -162,7 +177,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpGet]
         [Route("external-auth-callback")]
-        public async Task<IActionResult> ExternalLoginCallback()
+        public async Task<IActionResult> ExternalLoginCallback([FromQuery] string returnUrl)
         {
             ExternalLoginInfo info = await _signInManager.GetExternalLoginInfoAsync();
 
@@ -224,8 +239,6 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var options = new CookieOptions()
             {
-                //Domain = settings.AppDomain,
-                Domain = "http://localhost:5174/",
                 Expires = DateTime.UtcNow.AddMinutes(5)
             };
 
@@ -240,46 +253,46 @@ namespace EventHubSolution.BackendServer.Controllers
                     Formatting = Formatting.Indented
                 }), options);
 
-            return Redirect($"http://localhost:5174/");
+            return Redirect(returnUrl);
         }
 
-        //[Authorize]
-        //[HttpPost("refresh-token")]
-        //public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
-        //{
-        //    if (request is null || request.RefreshToken is null || request.RefreshToken == "")
-        //        return BadRequest("Invalid token");
+        [Authorize]
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            if (request is null || request.RefreshToken is null || request.RefreshToken == "")
+                return BadRequest("Invalid token");
 
-        //    var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
-        //    if (accessToken == null || accessToken == "")
-        //    {
-        //        return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
-        //    }
-        //    var principal = _tokenService.GetPrincipalFromToken(accessToken);
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (accessToken == null || accessToken == "")
+            {
+                return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
+            }
+            var principal = _tokenService.GetPrincipalFromToken(accessToken);
 
-        //    var user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
-        //    if (user == null)
-        //    {
-        //        return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
-        //    }
+            var user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            if (user == null)
+            {
+                return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
+            }
 
-        //    var isValid = await _userManager.VerifyUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH, request.RefreshToken);
-        //    if (!isValid)
-        //    {
-        //        return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
-        //    }
+            var isValid = await _userManager.VerifyUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH, request.RefreshToken);
+            if (!isValid)
+            {
+                return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
+            }
 
-        //    var newAccessToken = _tokenService.GenerateAccessToken(user);
-        //    var newRefreshToken = await _userManager.GenerateUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH);
+            var newAccessToken = _tokenService.GenerateAccessToken(user);
+            var newRefreshToken = await _userManager.GenerateUserTokenAsync(user, TokenProviders.DEFAULT, TokenTypes.REFRESH);
 
-        //    SignInResponse refreshResponse = new SignInResponse()
-        //    {
-        //        AccessToken = newAccessToken,
-        //        RefreshToken = newRefreshToken
-        //    };
+            SignInResponse refreshResponse = new SignInResponse()
+            {
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken
+            };
 
-        //    return Ok(refreshResponse);
-        //}
+            return Ok(new ApiOkResponse(refreshResponse));
+        }
 
         [Authorize]
         [HttpPost("forgot-password")]
@@ -294,12 +307,12 @@ namespace EventHubSolution.BackendServer.Controllers
                 await SendResetPasswordEmailAsync(request.Email, resetPasswordUrl);
             }
 
-            return Ok();
+            return Ok(new ApiOkResponse());
         }
 
         [Authorize]
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromQuery] UserResetPasswordRequest request)
+        public async Task<IActionResult> ResetPassword([FromBody] UserResetPasswordRequest request)
         {
             var user = await _userManager.FindByEmailAsync(request.Email);
 
@@ -314,7 +327,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 return BadRequest(new ApiBadRequestResponse(result));
             }
 
-            return Ok();
+            return Ok(new ApiOkResponse());
         }
 
         [Authorize]
@@ -356,7 +369,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt
             };
-            return Ok(userVm);
+            return Ok(new ApiOkResponse(userVm));
         }
 
         private async Task SendRegistrationConfirmationEmailAsync(string email, string userName)
