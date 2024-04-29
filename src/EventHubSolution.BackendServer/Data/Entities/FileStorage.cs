@@ -18,6 +18,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string FileName { get; set; }
 
         [Required]
+        [MaxLength(200)]
+        public string FileContainer { get; set; }
+
+        [Required]
         public string FilePath { get; set; }
 
         [Required]

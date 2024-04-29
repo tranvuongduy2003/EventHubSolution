@@ -22,15 +22,15 @@ namespace EventHubSolution.BackendServer.Controllers
         private readonly UserManager<User> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ApplicationDbContext _db;
-        private readonly IFileStorageService _fileStorage;
+        private readonly IFileStorageService _fileService;
 
         public UsersController(UserManager<User> userManager, RoleManager<IdentityRole> roleManager,
-            ApplicationDbContext db, IFileStorageService fileStorage)
+            ApplicationDbContext db, IFileStorageService fileService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _db = db;
-            _fileStorage = fileStorage;
+            _fileService = fileService;
         }
 
         #region Users
@@ -57,7 +57,7 @@ namespace EventHubSolution.BackendServer.Controllers
             //TODO: Upload avatar image
             if (request.Avatar != null)
             {
-                var avatarImage = await _fileStorage.SaveFileToFileStorage(request.Avatar);
+                var avatarImage = await _fileService.SaveFileToFileStorageAsync(request.Avatar, FileContainer.USERS);
                 user.AvatarId = avatarImage.Id;
             }
 
@@ -77,6 +77,8 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetUsers([FromQuery] PaginationFilter filter)
         {
             var users = _userManager.Users.ToList();
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
+
             if (filter.search != null)
             {
                 users = users.Where(u =>
@@ -101,7 +103,7 @@ namespace EventHubSolution.BackendServer.Controllers
             }
 
             var userVms = (from u in users
-                           join f in _db.FileStorages
+                           join f in fileStorages
                                on u.AvatarId equals f.Id
                                into UsersWithAvatar
                            from uwa in UsersWithAvatar.DefaultIfEmpty()
@@ -144,7 +146,7 @@ namespace EventHubSolution.BackendServer.Controllers
             if (user == null)
                 return NotFound(new ApiNotFoundResponse(""));
 
-            var avatar = await _db.FileStorages.FindAsync(user.AvatarId);
+            var avatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
 
             var roles = await _userManager.GetRolesAsync(user);
 
@@ -191,7 +193,7 @@ namespace EventHubSolution.BackendServer.Controllers
             //TODO: Upload avatar image
             if (request.Avatar != null)
             {
-                var avatarImage = await _fileStorage.SaveFileToFileStorage(request.Avatar);
+                var avatarImage = await _fileService.SaveFileToFileStorageAsync(request.Avatar, FileContainer.USERS);
                 user.AvatarId = avatarImage.Id;
             }
 
@@ -319,7 +321,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     .Take(filter.size).ToList();
             }
 
-            var userAvatar = await _db.FileStorages.FindAsync(user.AvatarId);
+            var userAvatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
             var reviewVms = reviews.Join(_db.Events, _review => _review.EventId, _event => _event.Id,
                 (_review, _event) => new ReviewVm
                 {
@@ -355,10 +357,11 @@ namespace EventHubSolution.BackendServer.Controllers
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {userId} is not existed."));
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
 
             var eventCategories = (from _eventCategory in _db.EventCategories
                                    join _categoryVm in (from _category in _db.Categories
-                                                        join _fileStorage in _db.FileStorages
+                                                        join _fileStorage in fileStorages
                                                             on _category.IconImageId equals _fileStorage.Id
                                                             into joinedCategories
                                                         from _joinedCategory in joinedCategories.DefaultIfEmpty()
@@ -394,7 +397,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 .ToList();
 
             var joinedEventVms = (from _event in eventDatas
-                                  join _fileStorage in _db.FileStorages
+                                  join _fileStorage in fileStorages
                                       on _event.CoverImageId equals _fileStorage.Id
                                       into joinedCoverImageEvents
                                   from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()

@@ -6,6 +6,7 @@ using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.General;
+using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -48,7 +49,7 @@ namespace EventHubSolution.BackendServer.Controllers
             };
 
             //TODO: Upload cover image file
-            FileStorage coverImageFileStorage = await _fileService.SaveFileToFileStorage(request.CoverImage);
+            FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, FileContainer.EVENTS);
             eventData.CoverImageId = coverImageFileStorage.Id;
 
             //TODO: Create email content
@@ -62,7 +63,7 @@ namespace EventHubSolution.BackendServer.Controllers
             //TODO: Upload email attachments file
             request.EmailContent.Attachments.ForEach(async attachment =>
             {
-                FileStorage attachmentFileStorage = await _fileService.SaveFileToFileStorage(attachment);
+                FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
                 var emailAttachment = new EmailAttachment()
                 {
                     AttachmentId = attachmentFileStorage.Id,
@@ -79,8 +80,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 Street = request.Location.Street,
                 District = request.Location.District,
                 City = request.Location.City,
-                LatitudeY = request.Location.LatitudeY,
-                LongitudeX = request.Location.LongitudeX,
             };
             _db.Locations.Add(location);
 
@@ -129,9 +128,10 @@ namespace EventHubSolution.BackendServer.Controllers
         [HttpGet]
         public async Task<IActionResult> GetEvents([FromQuery] EventPaginationFilter filter)
         {
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
             var eventCategories = (from _eventCategory in _db.EventCategories
                                    join _categoryVm in (from _category in _db.Categories
-                                                        join _fileStorage in _db.FileStorages
+                                                        join _fileStorage in fileStorages
                                                         on _category.IconImageId equals _fileStorage.Id
                                                         into joinedCategories
                                                         from _joinedCategory in joinedCategories.DefaultIfEmpty()
@@ -155,7 +155,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                    }).ToList();
 
             var joinedEventVms = (from _event in _db.Events
-                                  join _fileStorage in _db.FileStorages
+                                  join _fileStorage in fileStorages
                                   on _event.CoverImageId equals _fileStorage.Id
                                   into joinedCoverImageEvents
                                   from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
@@ -301,6 +301,7 @@ namespace EventHubSolution.BackendServer.Controllers
             var eventData = await _db.Events.FindAsync(id);
             if (eventData == null)
                 return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
 
             var eventDataVm = new EventDetailVm()
             {
@@ -333,7 +334,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             //TODO: Get event's categories
             var catogories = _db.Categories
-                .Join(_db.FileStorages, _category => _category.IconImageId, _fileStorage => _fileStorage.Id, (_category, _fileStorage) => new CategoryVm
+                .Join(fileStorages, _category => _category.IconImageId, _fileStorage => _fileStorage.Id, (_category, _fileStorage) => new CategoryVm
                 {
                     Id = _category.Id,
                     Color = _category.Color,
@@ -361,7 +362,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     Content = _emailContent.Content,
                     AttachmentId = _attachment.AttachmentId
                 })
-                .Join(_db.FileStorages, _emailContent => _emailContent.AttachmentId, _fileStorage => _fileStorage.Id, (_emailContent, _fileStorage) => new
+                .Join(fileStorages, _emailContent => _emailContent.AttachmentId, _fileStorage => _fileStorage.Id, (_emailContent, _fileStorage) => new
                 {
                     EmailContent = _emailContent,
                     FileStorage = new FileStorageVm
@@ -394,18 +395,16 @@ namespace EventHubSolution.BackendServer.Controllers
                 City = location.City,
                 District = location.District,
                 Street = location.Street,
-                LatitudeY = location.LatitudeY,
-                LongitudeX = location.LongitudeX,
             };
             eventDataVm.Location = locationVm;
 
             //TODO: Get event's cover image
-            var coverImage = _db.FileStorages.Find(eventData.CoverImageId);
+            var coverImage = await _fileService.GetFileByFileIdAsync(eventData.CoverImageId);
             eventDataVm.CoverImage = coverImage?.FilePath;
 
             //TODO: Get event's creator
             var creator = await _userManager.FindByIdAsync(eventData.CreatorId);
-            var avatar = _db.FileStorages.Find(creator.AvatarId);
+            var avatar = await _fileService.GetFileByFileIdAsync(creator.AvatarId);
             var creatorVm = new CreatorVm()
             {
                 Id = creator.Id,
@@ -440,7 +439,7 @@ namespace EventHubSolution.BackendServer.Controllers
             eventData.Promotion = request.Promotion;
 
             //TODO: Update cover image
-            FileStorage coverImageFileStorage = await _fileService.SaveFileToFileStorage(request.CoverImage);
+            FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, FileContainer.EVENTS);
             eventData.CoverImageId = coverImageFileStorage.Id;
 
             //TODO: Update email content
@@ -450,7 +449,7 @@ namespace EventHubSolution.BackendServer.Controllers
             //TODO: Update email attachments file
             request.EmailContent.Attachments.ForEach(async attachment =>
             {
-                FileStorage attachmentFileStorage = await _fileService.SaveFileToFileStorage(attachment);
+                FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
                 var emailAttachment = await _db.EmailAttachments.FirstOrDefaultAsync(e => e.EmailContentId == emailContent.Id);
                 emailAttachment.AttachmentId = attachmentFileStorage.Id;
                 _db.EmailAttachments.Update(emailAttachment);
@@ -461,8 +460,6 @@ namespace EventHubSolution.BackendServer.Controllers
             location.Street = request.Location.Street;
             location.District = request.Location.District;
             location.City = request.Location.City;
-            location.LatitudeY = request.Location.LatitudeY;
-            location.LongitudeX = request.Location.LongitudeX;
             _db.Locations.Update(location);
 
             //TODO: Update ticket types
@@ -575,6 +572,7 @@ namespace EventHubSolution.BackendServer.Controllers
             var dbEvent = await _db.Reviews.FindAsync(eventId);
             if (dbEvent == null)
                 return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
 
             var reviews = _db.Reviews.Where(r => r.EventId == eventId).ToList();
             if (filter.search != null)
@@ -598,16 +596,16 @@ namespace EventHubSolution.BackendServer.Controllers
             }
 
             var users = (from _user in _userManager.Users
-                         join _fileStorage in _db.FileStorages
+                         join _fileStorage in fileStorages
                          on _user.AvatarId equals _fileStorage.Id
                          into joinedUsers
                          from _joinedUser in joinedUsers
-                         select new User
+                         select new UserVm
                          {
                              Id = _user.Id,
                              Email = _user.Email,
                              FullName = _user.FullName,
-                             Avatar = _joinedUser,
+                             Avatar = _joinedUser.FilePath,
                          });
 
             var reviewVms = (from _review in _db.Reviews
@@ -619,7 +617,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                  EventId = _review.EventId,
                                  EventName = _event.Name,
                                  UserId = _review.UserId,
-                                 UserAvatar = _user.Avatar.FilePath,
+                                 UserAvatar = _user.Avatar,
                                  UserName = _user.FullName,
                                  Content = _review.Content,
                                  Rate = _review.Rate,
@@ -645,13 +643,14 @@ namespace EventHubSolution.BackendServer.Controllers
             var review = await _db.Reviews.FindAsync(reviewId);
             if (review == null)
                 return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-            var users = _userManager.Users.Join(_db.FileStorages, _user => _user.AvatarId, _fileStorage => _fileStorage.Id, (_user, _fileStorage) => new User
+            var users = _userManager.Users.Join(fileStorages, _user => _user.AvatarId, _fileStorage => _fileStorage.Id, (_user, _fileStorage) => new UserVm
             {
                 Id = _user.Id,
                 Email = _user.Email,
                 FullName = _user.FullName,
-                Avatar = _fileStorage,
+                Avatar = _fileStorage.FilePath,
             });
             var reviewUser = users.FirstOrDefault(u => u.Id == review.UserId);
 
@@ -663,7 +662,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 EventId = review.EventId,
                 EventName = dbEvent?.Name,
                 UserId = review.UserId,
-                UserAvatar = reviewUser?.Avatar.FilePath,
+                UserAvatar = reviewUser?.Avatar,
                 UserName = reviewUser?.FullName,
                 Content = review.Content,
                 Rate = review.Rate,

@@ -14,10 +14,6 @@ namespace EventHubSolution.ViewModels.Contents
 
             RuleFor(x => x.Street).NotEmpty().WithMessage("Street is required")
                 .MaximumLength(100).WithMessage("Street cannot over limit 100 characters");
-
-            RuleFor(x => x.LongitudeX).NotEmpty().WithMessage("Longitude is required");
-
-            RuleFor(x => x.LatitudeY).NotEmpty().WithMessage("Latitude is required");
         }
     }
 }

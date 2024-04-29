@@ -38,7 +38,7 @@ namespace EventHubSolution.BackendServer.Controllers
             };
 
             //TODO: Upload file and assign category.ImageColorId to new FileStorage's Id
-            FileStorage iconFileStorage = await _fileService.SaveFileToFileStorage(request.IconImage);
+            FileStorageVm iconFileStorage = await _fileService.SaveFileToFileStorageAsync(request.IconImage, FileContainer.CATEGORIES);
             category.IconImageId = iconFileStorage.Id;
 
             _db.Categories.Add(category);
@@ -58,6 +58,8 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetCategories([FromQuery] PaginationFilter filter)
         {
             var categories = _db.Categories.ToList();
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
+
             if (filter.search != null)
             {
                 categories = categories.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -79,7 +81,7 @@ namespace EventHubSolution.BackendServer.Controllers
             }
 
             var categoryVms = (from _category in categories
-                               join _fileStorage in _db.FileStorages
+                               join _fileStorage in fileStorages
                                on _category.IconImageId equals _fileStorage.Id
                                into joinedCategories
                                from _joinedCategory in joinedCategories
@@ -113,7 +115,7 @@ namespace EventHubSolution.BackendServer.Controllers
             if (category == null)
                 return NotFound(new ApiNotFoundResponse(""));
 
-            var categoryIconImage = await _db.FileStorages.FindAsync(category.IconImageId);
+            var categoryIconImage = await _fileService.GetFileByFileIdAsync(category.IconImageId);
 
             var categoryVm = new CategoryVm()
             {
@@ -142,7 +144,7 @@ namespace EventHubSolution.BackendServer.Controllers
             category.Color = category.Color;
 
             //TODO: Upload file and assign category.ImageColorId to new FileStorage's Id
-            FileStorage iconFileStorage = await _fileService.SaveFileToFileStorage(request.IconImage);
+            FileStorageVm iconFileStorage = await _fileService.SaveFileToFileStorageAsync(request.IconImage, FileContainer.CATEGORIES);
             category.IconImageId = iconFileStorage.Id;
 
             _db.Categories.Update(category);
@@ -163,7 +165,7 @@ namespace EventHubSolution.BackendServer.Controllers
             if (category == null)
                 return NotFound(new ApiNotFoundResponse(""));
 
-            var categoryIconImage = await _db.FileStorages.FindAsync(category.IconImageId);
+            var categoryIconImage = await _fileService.GetFileByFileIdAsync(category.IconImageId);
 
             _db.Categories.Remove(category);
             var result = await _db.SaveChangesAsync();

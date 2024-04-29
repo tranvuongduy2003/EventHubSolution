@@ -1,6 +1,7 @@
 ﻿using Bogus;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.BackendServer.Data.Entities;
+using EventHubSolution.BackendServer.Services;
+using EventHubSolution.ViewModels.Constants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Extensions;
 
@@ -15,14 +16,16 @@ namespace EventHubSolution.BackendServer.Data
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IFileStorageService _fileService;
 
         public DbInitializer(ApplicationDbContext context,
           UserManager<User> userManager,
-          RoleManager<IdentityRole> roleManager)
+          RoleManager<IdentityRole> roleManager, IFileStorageService fileService)
         {
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
+            _fileService = fileService;
         }
 
         public async Task Seed()
@@ -74,6 +77,7 @@ namespace EventHubSolution.BackendServer.Data
                     .RuleFor(f => f.Id, _ => Guid.NewGuid().ToString())
                     .RuleFor(f => f.FileName, f => $"{f.Person.UserName}.png")
                     .RuleFor(f => f.FileType, _ => "image/png")
+                    .RuleFor(f => f.FileContainer, _ => FileContainer.USERS)
                     .RuleFor(f => f.FileSize, f => f.Random.Int(1000, 5000))
                     .RuleFor(f => f.FilePath, f => f.Person.Avatar);
 
@@ -245,26 +249,26 @@ namespace EventHubSolution.BackendServer.Data
 
                 var icons = new List<FileStorage>()
                 {
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "academic.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/academic.png?sp=r&st=2024-04-07T03:31:12Z&se=2025-07-04T11:31:12Z&spr=https&sv=2022-11-02&sr=b&sig=yOhX7zG3VQx7pWybAUPGxmQUp96XN5TBhT8DYburC3I%3D", FileSize = 1761 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "anniversary.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/anniversary.png?sp=r&st=2024-04-07T03:46:23Z&se=2025-07-04T11:46:23Z&spr=https&sv=2022-11-02&sr=b&sig=zgTti9FF9GlRhpy%2Fjtpf5HjMoYxzbuZDMGN3t89%2FvzU%3D", FileSize = 4375 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "charities.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/charities.png?sp=r&st=2024-04-07T03:46:44Z&se=2025-04-07T11:46:44Z&spr=https&sv=2022-11-02&sr=b&sig=cBzcgm1fDRph7tzAK24OtniOpPAFPpCh0K643SYS0YA%3D", FileSize = 3203 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "communities.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/communities.png?sp=r&st=2024-04-07T03:47:01Z&se=2025-07-04T11:47:01Z&spr=https&sv=2022-11-02&sr=b&sig=HfnVkw390QGSI63DwIbK2d3EaZUo%2B%2FebDswsf1p2KQ8%3D", FileSize = 3944 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "concerts.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/concerts.png?sp=r&st=2024-04-07T03:47:21Z&se=2025-04-07T11:47:21Z&spr=https&sv=2022-11-02&sr=b&sig=8a%2BAwYyuwbHTgARKss2gbSvvayqQl%2FpTmqiq%2Beu13Tc%3D", FileSize = 4407 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "conferences.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/conferences.png?sp=r&st=2024-04-07T03:47:39Z&se=2025-04-07T11:47:39Z&spr=https&sv=2022-11-02&sr=b&sig=uUeJIxpeXoazrGWlRFA2zL3QW0Wi9SLaCOK9K8UgEkg%3D", FileSize = 2712 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "fashion.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/fashion.png?sp=r&st=2024-04-07T03:47:56Z&se=2025-04-07T11:47:56Z&spr=https&sv=2022-11-02&sr=b&sig=KYJ5gPT8LUycfqmw5aRhYIV%2BgS4Z919qqd3UdBKY3Fs%3D", FileSize = 4229 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "festivals-and-fairs.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/festivals-and-fairs.png?sp=r&st=2024-04-07T03:48:11Z&se=2025-04-07T11:48:11Z&spr=https&sv=2022-11-02&sr=b&sig=VsxNlIz64dEHh6%2FkQxRQrRpKcgIXbw4x9ugzS3rMAjs%3D", FileSize = 4505 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "film.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/film.png?sp=r&st=2024-04-07T03:48:25Z&se=2025-07-04T11:48:25Z&spr=https&sv=2022-11-02&sr=b&sig=dLbaWe8U1MWU%2F2x3nshQb9MJ7ODE18nuroSt0YiAtHY%3D", FileSize = 4161 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "food-and-drink.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/food-and-drink.png?sp=r&st=2024-04-07T03:48:46Z&se=2025-04-07T11:48:46Z&spr=https&sv=2022-11-02&sr=b&sig=LL42HfnOHw%2FZAu3pjNHecbZgEOcr6Geva7K%2B4WztJUY%3D", FileSize = 2431 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "holidays.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/holidays.png?sp=r&st=2024-04-07T03:49:02Z&se=2025-04-07T11:49:02Z&spr=https&sv=2022-11-02&sr=b&sig=DlpJfJ32Y9ZuaJ7AaoNVhhKYNNk55i2OKn1tOe90rJ8%3D", FileSize = 4635 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "kids-and-family.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/kids-and-family.png?sp=r&st=2024-04-07T03:49:20Z&se=2025-04-07T11:49:20Z&spr=https&sv=2022-11-02&sr=b&sig=0Y9FimXwlLujB3QdivNoma6ZCdKee0JNhWDDXQV84h4%3D", FileSize = 3683 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "lectures-and-books.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/lectures-and-books.png?sp=r&st=2024-04-07T03:49:40Z&se=2025-04-07T11:49:40Z&spr=https&sv=2022-11-02&sr=b&sig=BThGo%2BqARKO%2BuKxCfSw3NPB4lVw%2BcWhOb26HB3nKnSY%3D", FileSize = 2404 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "music.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/music.png?sp=r&st=2024-04-07T03:49:58Z&se=2025-04-07T11:49:58Z&spr=https&sv=2022-11-02&sr=b&sig=rY0M%2FbUszfOfWAcehEarOJGL4jwcRlL9E1GTthcfKQY%3D", FileSize = 2832 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "nightlife.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/nightlife.png?sp=r&st=2024-04-07T03:51:33Z&se=2025-04-07T11:51:33Z&spr=https&sv=2022-11-02&sr=b&sig=Zj2er67XbLMVz1Sy2892il79%2FBCiZu4ybYZacF0gznQ%3D", FileSize = 2344 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "other.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/other.png?sp=r&st=2024-04-07T03:50:32Z&se=2025-04-07T11:50:32Z&spr=https&sv=2022-11-02&sr=b&sig=DCM7%2Fhc5qjRN0CHRXMV95TlJoJrt9GZZN6mpRXoa1j4%3D", FileSize = 860 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "performing-arts.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/performing-arts.png?sp=r&st=2024-04-07T03:50:46Z&se=2025-04-07T11:50:46Z&spr=https&sv=2022-11-02&sr=b&sig=F4GoIhCahUO4%2BE7zdvFrRjWaP6KRignel%2FzA0eZxnmk%3D", FileSize = 2991 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "politics.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/politics.png?sp=r&st=2024-04-07T03:51:01Z&se=2025-04-07T11:51:01Z&spr=https&sv=2022-11-02&sr=b&sig=ZAgVqondk2RfwyBTLYdw6EnyysjrBaVVofIosPMD%2F9o%3D", FileSize = 2197 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "sports-and-active-life.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/sports-and-active-life.png?sp=r&st=2024-04-07T03:52:23Z&se=2025-04-07T11:52:23Z&spr=https&sv=2022-11-02&sr=b&sig=Oy1lN5E5QHP6BXhyMhvpuZJzHp70aeVr2dBced8tQ%2F4%3D", FileSize = 6994 },
-                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileName = "visual-arts.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/visual-arts.png?sp=r&st=2024-04-07T03:52:38Z&se=2025-07-04T11:52:38Z&spr=https&sv=2022-11-02&sr=b&sig=qyh98jEeqJYLOd7HEeHsqjegC%2FoyH3fRrh4Gjl5HkA0%3D", FileSize = 3421 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "academic.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/academic.png?sp=r&st=2024-04-07T03:31:12Z&se=2025-07-04T11:31:12Z&spr=https&sv=2022-11-02&sr=b&sig=yOhX7zG3VQx7pWybAUPGxmQUp96XN5TBhT8DYburC3I%3D", FileSize = 1761 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "anniversary.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/anniversary.png?sp=r&st=2024-04-07T03:46:23Z&se=2025-07-04T11:46:23Z&spr=https&sv=2022-11-02&sr=b&sig=zgTti9FF9GlRhpy%2Fjtpf5HjMoYxzbuZDMGN3t89%2FvzU%3D", FileSize = 4375 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "charities.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/charities.png?sp=r&st=2024-04-07T03:46:44Z&se=2025-04-07T11:46:44Z&spr=https&sv=2022-11-02&sr=b&sig=cBzcgm1fDRph7tzAK24OtniOpPAFPpCh0K643SYS0YA%3D", FileSize = 3203 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "communities.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/communities.png?sp=r&st=2024-04-07T03:47:01Z&se=2025-07-04T11:47:01Z&spr=https&sv=2022-11-02&sr=b&sig=HfnVkw390QGSI63DwIbK2d3EaZUo%2B%2FebDswsf1p2KQ8%3D", FileSize = 3944 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "concerts.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/concerts.png?sp=r&st=2024-04-07T03:47:21Z&se=2025-04-07T11:47:21Z&spr=https&sv=2022-11-02&sr=b&sig=8a%2BAwYyuwbHTgARKss2gbSvvayqQl%2FpTmqiq%2Beu13Tc%3D", FileSize = 4407 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "conferences.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/conferences.png?sp=r&st=2024-04-07T03:47:39Z&se=2025-04-07T11:47:39Z&spr=https&sv=2022-11-02&sr=b&sig=uUeJIxpeXoazrGWlRFA2zL3QW0Wi9SLaCOK9K8UgEkg%3D", FileSize = 2712 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "fashion.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/fashion.png?sp=r&st=2024-04-07T03:47:56Z&se=2025-04-07T11:47:56Z&spr=https&sv=2022-11-02&sr=b&sig=KYJ5gPT8LUycfqmw5aRhYIV%2BgS4Z919qqd3UdBKY3Fs%3D", FileSize = 4229 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "festivals-and-fairs.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/festivals-and-fairs.png?sp=r&st=2024-04-07T03:48:11Z&se=2025-04-07T11:48:11Z&spr=https&sv=2022-11-02&sr=b&sig=VsxNlIz64dEHh6%2FkQxRQrRpKcgIXbw4x9ugzS3rMAjs%3D", FileSize = 4505 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "film.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/film.png?sp=r&st=2024-04-07T03:48:25Z&se=2025-07-04T11:48:25Z&spr=https&sv=2022-11-02&sr=b&sig=dLbaWe8U1MWU%2F2x3nshQb9MJ7ODE18nuroSt0YiAtHY%3D", FileSize = 4161 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "food-and-drink.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/food-and-drink.png?sp=r&st=2024-04-07T03:48:46Z&se=2025-04-07T11:48:46Z&spr=https&sv=2022-11-02&sr=b&sig=LL42HfnOHw%2FZAu3pjNHecbZgEOcr6Geva7K%2B4WztJUY%3D", FileSize = 2431 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "holidays.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/holidays.png?sp=r&st=2024-04-07T03:49:02Z&se=2025-04-07T11:49:02Z&spr=https&sv=2022-11-02&sr=b&sig=DlpJfJ32Y9ZuaJ7AaoNVhhKYNNk55i2OKn1tOe90rJ8%3D", FileSize = 4635 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "kids-and-family.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/kids-and-family.png?sp=r&st=2024-04-07T03:49:20Z&se=2025-04-07T11:49:20Z&spr=https&sv=2022-11-02&sr=b&sig=0Y9FimXwlLujB3QdivNoma6ZCdKee0JNhWDDXQV84h4%3D", FileSize = 3683 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "lectures-and-books.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/lectures-and-books.png?sp=r&st=2024-04-07T03:49:40Z&se=2025-04-07T11:49:40Z&spr=https&sv=2022-11-02&sr=b&sig=BThGo%2BqARKO%2BuKxCfSw3NPB4lVw%2BcWhOb26HB3nKnSY%3D", FileSize = 2404 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "music.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/music.png?sp=r&st=2024-04-07T03:49:58Z&se=2025-04-07T11:49:58Z&spr=https&sv=2022-11-02&sr=b&sig=rY0M%2FbUszfOfWAcehEarOJGL4jwcRlL9E1GTthcfKQY%3D", FileSize = 2832 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "nightlife.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/nightlife.png?sp=r&st=2024-04-07T03:51:33Z&se=2025-04-07T11:51:33Z&spr=https&sv=2022-11-02&sr=b&sig=Zj2er67XbLMVz1Sy2892il79%2FBCiZu4ybYZacF0gznQ%3D", FileSize = 2344 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "other.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/other.png?sp=r&st=2024-04-07T03:50:32Z&se=2025-04-07T11:50:32Z&spr=https&sv=2022-11-02&sr=b&sig=DCM7%2Fhc5qjRN0CHRXMV95TlJoJrt9GZZN6mpRXoa1j4%3D", FileSize = 860 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "performing-arts.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/performing-arts.png?sp=r&st=2024-04-07T03:50:46Z&se=2025-04-07T11:50:46Z&spr=https&sv=2022-11-02&sr=b&sig=F4GoIhCahUO4%2BE7zdvFrRjWaP6KRignel%2FzA0eZxnmk%3D", FileSize = 2991 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "politics.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/politics.png?sp=r&st=2024-04-07T03:51:01Z&se=2025-04-07T11:51:01Z&spr=https&sv=2022-11-02&sr=b&sig=ZAgVqondk2RfwyBTLYdw6EnyysjrBaVVofIosPMD%2F9o%3D", FileSize = 2197 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "sports-and-active-life.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/sports-and-active-life.png?sp=r&st=2024-04-07T03:52:23Z&se=2025-04-07T11:52:23Z&spr=https&sv=2022-11-02&sr=b&sig=Oy1lN5E5QHP6BXhyMhvpuZJzHp70aeVr2dBced8tQ%2F4%3D", FileSize = 6994 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.CATEGORIES, FileName = "visual-arts.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/categories/visual-arts.png?sp=r&st=2024-04-07T03:52:38Z&se=2025-07-04T11:52:38Z&spr=https&sv=2022-11-02&sr=b&sig=qyh98jEeqJYLOd7HEeHsqjegC%2FoyH3fRrh4Gjl5HkA0%3D", FileSize = 3421 },
                 };
                 _context.FileStorages.AddRange(icons);
                 #endregion
@@ -308,9 +312,7 @@ namespace EventHubSolution.BackendServer.Data
                     .RuleFor(l => l.Id, _ => Guid.NewGuid().ToString())
                     .RuleFor(l => l.City, f => f.Address.City())
                     .RuleFor(l => l.District, f => f.Address.State())
-                    .RuleFor(l => l.Street, f => f.Address.StreetAddress())
-                    .RuleFor(l => l.LongitudeX, f => f.Address.Longitude())
-                    .RuleFor(l => l.LatitudeY, f => f.Address.Latitude());
+                    .RuleFor(l => l.Street, f => f.Address.StreetAddress());
 
                 var fakerTicketType = new Faker<TicketType>()
                     .RuleFor(t => t.Id, _ => Guid.NewGuid().ToString())
@@ -326,6 +328,7 @@ namespace EventHubSolution.BackendServer.Data
                         .RuleFor(f => f.Id, _ => Guid.NewGuid().ToString())
                         .RuleFor(f => f.FileName, f => $"{f.Lorem.Word()}.png")
                         .RuleFor(f => f.FileType, _ => "image/png")
+                        .RuleFor(f => f.FileContainer, _ => FileContainer.EVENTS)
                         .RuleFor(f => f.FileSize, f => f.Random.Int(1000, 5000))
                         .RuleFor(f => f.FilePath, f => f.Image.Business(1024, 768));
 
@@ -333,6 +336,7 @@ namespace EventHubSolution.BackendServer.Data
                         .RuleFor(f => f.Id, _ => Guid.NewGuid().ToString())
                         .RuleFor(f => f.FileName, f => $"{f.Lorem.Word()}.png")
                         .RuleFor(f => f.FileType, _ => "image/png")
+                        .RuleFor(f => f.FileContainer, _ => FileContainer.EVENTS)
                         .RuleFor(f => f.FileSize, f => f.Random.Int(1000, 5000))
                         .RuleFor(f => f.FilePath, f => f.Image.Business(640, 640));
 

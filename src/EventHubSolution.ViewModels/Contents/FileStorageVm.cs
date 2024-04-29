@@ -6,6 +6,8 @@
 
         public string FileName { get; set; }
 
+        public string FileContainer { get; set; }
+
         public string FilePath { get; set; }
 
         public string FileType { get; set; }

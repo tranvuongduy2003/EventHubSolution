@@ -29,12 +29,6 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [MaxLength(100)]
         public string Street { get; set; }
 
-        [Required]
-        public double LongitudeX { get; set; }
-
-        [Required]
-        public double LatitudeY { get; set; }
-
         [NotMapped]
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;

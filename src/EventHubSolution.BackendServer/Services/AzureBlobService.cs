@@ -1,28 +1,60 @@
 ﻿using Azure.Storage;
 using Azure.Storage.Blobs;
+using Azure.Storage.Sas;
 using EventHubSolution.ViewModels.General;
+using Microsoft.Extensions.Options;
 
 namespace EventHubSolution.BackendServer.Services
 {
     public class AzureBlobService
     {
-        private readonly IConfiguration _configuration;
-        private readonly string _storageAccount;
-        private readonly string _key;
-        private readonly string _containerName;
+        private readonly AzureBlobStorage _azureBlobStorage;
         private readonly BlobContainerClient _filesContainer;
 
-        public AzureBlobService(IConfiguration configuration)
+        public AzureBlobService(IOptions<AzureBlobStorage> azureBlobStorage)
         {
-            _configuration = configuration;
-            _storageAccount = _configuration.GetValue<string>("AzureBlobStorage:StorageAccount");
-            _key = _configuration.GetValue<string>("AzureBlobStorage:Key");
-            _containerName = _configuration.GetValue<string>("AzureBlobStorage:ContainerName");
+            _azureBlobStorage = azureBlobStorage.Value;
 
-            var credential = new StorageSharedKeyCredential(_storageAccount, _key);
-            var blobUri = $"https://{_storageAccount}.blob.core.windows.net";
+            var credential = new StorageSharedKeyCredential(_azureBlobStorage.StorageAccount, _azureBlobStorage.Key);
+            var blobUri = $"https://{_azureBlobStorage.StorageAccount}.blob.core.windows.net/{_azureBlobStorage.ContainerName}";
             var blobServiceClient = new BlobServiceClient(new Uri(blobUri), credential);
-            _filesContainer = blobServiceClient.GetBlobContainerClient(_containerName);
+            _filesContainer = blobServiceClient.GetBlobContainerClient(_azureBlobStorage.ContainerName);
+        }
+
+        public async Task<string> GetUriByFileNameAsync(string fileContainer, string fileName, string? storedPolicyName = null)
+        {
+            var blobClient = _filesContainer.GetBlobClient($"{fileContainer}/{fileName}");
+
+            // Check if BlobContainerClient object has been authorized with Shared Key
+            if (blobClient != null && blobClient.CanGenerateSasUri)
+            {
+                // Create a SAS token that's valid for one day
+                BlobSasBuilder sasBuilder = new BlobSasBuilder()
+                {
+                    BlobContainerName = _azureBlobStorage.ContainerName,
+                    BlobName = blobClient.Name,
+                    Resource = "b"
+                };
+
+                if (storedPolicyName == null)
+                {
+                    sasBuilder.ExpiresOn = DateTimeOffset.UtcNow.AddDays(1);
+                    sasBuilder.SetPermissions(BlobContainerSasPermissions.Read);
+                }
+                else
+                {
+                    sasBuilder.Identifier = storedPolicyName;
+                }
+
+                Uri sasURI = blobClient.GenerateSasUri(sasBuilder);
+
+                return sasURI.ToString();
+            }
+            else
+            {
+                // Client object is not authorized via Shared Key
+                return null;
+            }
         }
 
         public async Task<List<BlobVm>> ListAsync()
@@ -46,7 +78,7 @@ namespace EventHubSolution.BackendServer.Services
             return files;
         }
 
-        public async Task<BlobResponseVm> UploadAsync(IFormFile blob)
+        public async Task<BlobResponseVm> UploadAsync(IFormFile blob, string fileContainer)
         {
             BlobResponseVm response = new();
             BlobClient client = _filesContainer.GetBlobClient(blob.FileName);
@@ -55,7 +87,7 @@ namespace EventHubSolution.BackendServer.Services
             {
                 response.Status = $"File {blob.FileName} Uploaded Successfully";
                 response.Error = false;
-                response.Blob.Uri = client.Uri.AbsoluteUri;
+                response.Blob.Uri = client.Uri.ToString();
                 response.Blob.Name = client.Name;
                 response.Blob.ContentType = blob.ContentType;
                 response.Blob.Size = blob.Length;
@@ -78,9 +110,9 @@ namespace EventHubSolution.BackendServer.Services
             return response;
         }
 
-        public async Task<BlobVm?> DownloadAsync(string blobFilename)
+        public async Task<BlobVm?> DownloadAsync(string fileContainer, string blobFilename)
         {
-            BlobClient file = _filesContainer.GetBlobClient(blobFilename);
+            BlobClient file = _filesContainer.GetBlobClient($"{fileContainer}/{blobFilename}");
 
             if (await file.ExistsAsync())
             {
@@ -98,9 +130,9 @@ namespace EventHubSolution.BackendServer.Services
             return null;
         }
 
-        public async Task<BlobResponseVm> DeleteAsync(string blobFilename)
+        public async Task<BlobResponseVm> DeleteAsync(string fileContainer, string blobFilename)
         {
-            BlobClient file = _filesContainer.GetBlobClient(blobFilename);
+            BlobClient file = _filesContainer.GetBlobClient($"{fileContainer}/{blobFilename}");
 
             await file.DeleteAsync();
 

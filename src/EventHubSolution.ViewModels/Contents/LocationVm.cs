@@ -9,9 +9,5 @@
         public string District { get; set; }
 
         public string Street { get; set; }
-
-        public double LongitudeX { get; set; }
-
-        public double LatitudeY { get; set; }
     }
 }

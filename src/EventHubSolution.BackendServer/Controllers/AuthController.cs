@@ -29,8 +29,9 @@ namespace EventHubSolution.BackendServer.Controllers
         private readonly ITokenService _tokenService;
         private readonly ApplicationDbContext _db;
         private readonly IEmailService _emailService;
+        private readonly FileStorageService _fileStorage;
 
-        public AuthController(UserManager<User> userManager, RoleManager<IdentityRole> roleManager, SignInManager<User> signInManager, ITokenService tokenService, ApplicationDbContext db, IEmailService emailService)
+        public AuthController(UserManager<User> userManager, RoleManager<IdentityRole> roleManager, SignInManager<User> signInManager, ITokenService tokenService, ApplicationDbContext db, IEmailService emailService, FileStorageService fileStorage)
         {
             _userManager = userManager;
             _roleManager = roleManager;
@@ -38,6 +39,7 @@ namespace EventHubSolution.BackendServer.Controllers
             _tokenService = tokenService;
             _db = db;
             _emailService = emailService;
+            _fileStorage = fileStorage;
         }
 
         [HttpPost("signup")]
@@ -329,7 +331,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 return Unauthorized(new ApiUnauthorizedResponse("Unauthorized"));
             }
 
-            var avatar = await _db.FileStorages.FindAsync(user.AvatarId);
+            var avatar = await _fileStorage.GetFileByFileIdAsync(user.AvatarId);
             var roles = await _userManager.GetRolesAsync(user);
             var userVm = new UserVm()
             {
