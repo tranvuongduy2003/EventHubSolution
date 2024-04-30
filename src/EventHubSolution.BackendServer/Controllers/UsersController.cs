@@ -176,7 +176,7 @@ namespace EventHubSolution.BackendServer.Controllers
         [HttpPut("{id}")]
         [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.UPDATE)]
         [ApiValidationFilter]
-        public async Task<IActionResult> PutUser(string id, [FromBody] UserCreateRequest request)
+        public async Task<IActionResult> PutUser(string id, [FromBody] UserUpdateRequest request)
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null)
@@ -201,7 +201,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result.Succeeded)
             {
-                return NoContent();
+                return Ok();
             }
 
             return BadRequest(new ApiBadRequestResponse(result));

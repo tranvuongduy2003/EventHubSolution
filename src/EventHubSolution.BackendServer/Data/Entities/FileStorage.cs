@@ -21,8 +21,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [MaxLength(200)]
         public string FileContainer { get; set; }
 
-        [Required]
-        public string FilePath { get; set; }
+        public string? FilePath { get; set; }
 
         [Required]
         [MaxLength(50)]

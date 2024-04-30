@@ -1,5 +1,5 @@
-﻿using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.BackendServer.Data.Interfaces;
+﻿using EventHubSolution.BackendServer.Data.Interfaces;
+using EventHubSolution.ViewModels.Constants;
 using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -25,8 +25,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         }
 
         [MaxLength(50)]
-        [Required]
-        public string FullName { get; set; }
+        public string? FullName { get; set; }
 
         public DateTime? Dob { get; set; }
 

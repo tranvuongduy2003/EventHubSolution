@@ -1,6 +1,7 @@
-﻿using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.BackendServer.Controllers;
+﻿using EventHubSolution.BackendServer.Controllers;
 using EventHubSolution.BackendServer.Data;
+using EventHubSolution.ViewModels.Constants;
+using EventHubSolution.ViewModels.General;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -8,7 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 using MockQueryable.Moq;
 using Moq;
 using Newtonsoft.Json;
-using EventHubSolution.ViewModels;
 
 namespace EventHubSolution.BackendServer.UnitTest.Controllers
 {

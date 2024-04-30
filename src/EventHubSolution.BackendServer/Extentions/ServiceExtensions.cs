@@ -1,6 +1,7 @@
 ﻿using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Services;
+using EventHubSolution.BackendServer.Services.Interfaces;
 using EventHubSolution.ViewModels;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.General;
@@ -143,7 +144,8 @@ namespace EventHubSolution.BackendServer.Extentions
                 .AddTransient<IEmailService, EmailService>()
                 .AddTransient<ISequenceService, SequenceService>()
                 .AddTransient<IFileStorageService, FileStorageService>()
-                .AddTransient<ITokenService, TokenService>();
+                .AddTransient<ITokenService, TokenService>()
+                .AddTransient<ICacheService, CacheService>();
 
             services.AddSingleton<AzureBlobService>();
 

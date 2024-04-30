@@ -29,9 +29,9 @@ namespace EventHubSolution.BackendServer.Controllers
         private readonly ITokenService _tokenService;
         private readonly ApplicationDbContext _db;
         private readonly IEmailService _emailService;
-        private readonly FileStorageService _fileStorage;
+        private readonly IFileStorageService _fileStorage;
 
-        public AuthController(UserManager<User> userManager, RoleManager<IdentityRole> roleManager, SignInManager<User> signInManager, ITokenService tokenService, ApplicationDbContext db, IEmailService emailService, FileStorageService fileStorage)
+        public AuthController(UserManager<User> userManager, RoleManager<IdentityRole> roleManager, SignInManager<User> signInManager, ITokenService tokenService, ApplicationDbContext db, IEmailService emailService, IFileStorageService fileStorage)
         {
             _userManager = userManager;
             _roleManager = roleManager;
@@ -55,7 +55,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             User user = new()
             {
-                UserName = request.Email,
+                UserName = request.UserName,
                 Email = request.Email,
                 PhoneNumber = request.PhoneNumber,
                 FullName = request.FullName,
@@ -95,6 +95,20 @@ namespace EventHubSolution.BackendServer.Controllers
             {
                 return BadRequest(new ApiBadRequestResponse(result));
             }
+        }
+
+        [HttpPost("validate-user")]
+        public async Task<IActionResult> ValidateUser([FromBody] UserValidateRequest request)
+        {
+            var useByEmail = await _userManager.FindByEmailAsync(request.Email);
+            if (useByEmail != null)
+                return BadRequest(new ApiBadRequestResponse("Email already exists"));
+
+            var useByPhoneNumber = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == request.PhoneNumber);
+            if (useByPhoneNumber != null)
+                return BadRequest(new ApiBadRequestResponse("Phone number already exists"));
+
+            return Ok(new ApiOkResponse());
         }
 
         [HttpPost("signin")]
@@ -348,7 +362,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 NumberOfFolloweds = user.NumberOfFolloweds,
                 NumberOfFollowers = user.NumberOfFollowers,
                 Status = user.Status,
-                Avatar = avatar.FilePath,
+                Avatar = avatar?.FilePath,
                 Roles = roles.ToList(),
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt

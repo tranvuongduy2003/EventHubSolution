@@ -1,16 +1,17 @@
-version: '1.0'
+version: '3.8'
 
 services:
-  eventhubsolution.backendserver:
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-    ports:
-      - "8080:8080"
-      - "8081:8081"
-    volumes:
-      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
-      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
-    image: eventhub
+  redis:
+      image: redis:alpine
+  
+  eventhub.api:
+    image: ${DOCKER_REGISTRY-}eventhub-api:${PLATFORM:-windows}-${TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
+
+# network section
+networks:
+  default:
+    name: eventhub
+    driver: bridge
