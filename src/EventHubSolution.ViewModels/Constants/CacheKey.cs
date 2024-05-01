@@ -23,5 +23,9 @@
         public const string USER = "USER";
         public const string FILES = "FILES";
         public const string FILE = "FILE";
+        public const string REVIEWS = "REVIEWS";
+        public const string REVIEW = "REVIEW";
+        public const string EVENTCATEGORIES = "EVENTCATEGORIES";
+        public const string EVENTCATEGORIE = "EVENTCATEGORIE";
     }
 }

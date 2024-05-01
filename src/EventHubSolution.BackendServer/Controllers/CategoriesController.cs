@@ -45,16 +45,26 @@ namespace EventHubSolution.BackendServer.Controllers
             FileStorageVm iconFileStorage = await _fileService.SaveFileToFileStorageAsync(request.IconImage, FileContainer.CATEGORIES);
             category.IconImageId = iconFileStorage.Id;
 
-            var addedCategory = _db.Categories.Add(category);
+            _db.Categories.Add(category);
+
+            var categoryVm = new CategoryVm()
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Color = category.Color,
+                IconImage = iconFileStorage.FilePath,
+                CreatedAt = category.CreatedAt,
+                UpdatedAt = category.UpdatedAt
+            };
 
             var expiryTime = DateTimeOffset.Now.AddMinutes(45);
-            _cacheService.SetData<Category>($"{CacheKey.CATEGORY}{addedCategory.Entity.Id}", addedCategory.Entity, expiryTime);
+            _cacheService.SetData<CategoryVm>($"{CacheKey.CATEGORY}{categoryVm.Id}", categoryVm, expiryTime);
 
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(GetById), new { id = category.Id }, request);
+                return CreatedAtAction(nameof(GetById), categoryVm, request);
             }
             else
             {
@@ -129,30 +139,32 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetById(string id)
         {
             // Check cache data
-            Category category = null;
-            var cacheCategory = _cacheService.GetData<Category>($"{CacheKey.CATEGORY}{id}");
+            CategoryVm categoryVm = null;
+            var cacheCategory = _cacheService.GetData<CategoryVm>($"{CacheKey.CATEGORY}{id}");
             if (cacheCategory != null)
-                category = cacheCategory;
+                categoryVm = cacheCategory;
             else
-                category = await _db.Categories.FindAsync(id);
-            // Set expiry time
-            var expiryTime = DateTimeOffset.Now.AddMinutes(45);
-            _cacheService.SetData<Category>($"{CacheKey.CATEGORY}{id}", category, expiryTime);
-
-            if (category == null)
-                return NotFound(new ApiNotFoundResponse(""));
-
-            var categoryIconImage = await _fileService.GetFileByFileIdAsync(category.IconImageId);
-
-            var categoryVm = new CategoryVm()
             {
-                Id = category.Id,
-                Name = category.Name,
-                Color = category.Color,
-                IconImage = categoryIconImage.FilePath,
-                CreatedAt = category.CreatedAt,
-                UpdatedAt = category.UpdatedAt
-            };
+                var category = await _db.Categories.FindAsync(id);
+                if (category == null)
+                    return NotFound(new ApiNotFoundResponse(""));
+
+                var categoryIconImage = await _fileService.GetFileByFileIdAsync(category.IconImageId);
+
+                categoryVm = new CategoryVm()
+                {
+                    Id = category.Id,
+                    Name = category.Name,
+                    Color = category.Color,
+                    IconImage = categoryIconImage.FilePath,
+                    CreatedAt = category.CreatedAt,
+                    UpdatedAt = category.UpdatedAt
+                };
+
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<CategoryVm>($"{CacheKey.CATEGORY}{id}", categoryVm, expiryTime);
+            }
 
             return Ok(new ApiOkResponse(categoryVm));
         }
@@ -175,8 +187,19 @@ namespace EventHubSolution.BackendServer.Controllers
             category.IconImageId = iconFileStorage.Id;
 
             var updatedCategory = _db.Categories.Update(category);
+
+            var categoryVm = new CategoryVm()
+            {
+                Id = updatedCategory.Entity.Id,
+                Name = updatedCategory.Entity.Name,
+                Color = updatedCategory.Entity.Color,
+                IconImage = iconFileStorage.FilePath,
+                CreatedAt = updatedCategory.Entity.CreatedAt,
+                UpdatedAt = updatedCategory.Entity.UpdatedAt
+            };
+
             var expiryTime = DateTimeOffset.Now.AddMinutes(45);
-            _cacheService.SetData<Category>($"{CacheKey.CATEGORY}{updatedCategory.Entity.Id}", updatedCategory.Entity, expiryTime);
+            _cacheService.SetData<CategoryVm>($"{CacheKey.CATEGORY}{categoryVm.Id}", categoryVm, expiryTime);
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
