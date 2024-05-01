@@ -178,7 +178,17 @@ namespace EventHubSolution.BackendServer.Controllers
                                       on _event.Id equals _location.EventId
                                       into joinedLocationEvents
                                       from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
-                                      join _user in _userManager.Users.ToList()
+                                      join _user in (from u in _userManager.Users.ToList()
+                                                     join f in fileStorages
+                                                         on u.AvatarId equals f.Id
+                                                         into UsersWithAvatar
+                                                     from uwa in UsersWithAvatar.DefaultIfEmpty()
+                                                     select new
+                                                     {
+                                                         Id = u.Id,
+                                                         FullName = u.FullName,
+                                                         Avatar = uwa?.FilePath,
+                                                     })
                                       on _event.CreatorId equals _user.Id
                                       into joinedCreatorEvents
                                       from _joinedCreatorEvent in joinedCreatorEvents.DefaultIfEmpty()
@@ -186,12 +196,15 @@ namespace EventHubSolution.BackendServer.Controllers
                                       {
                                           Id = _event.Id,
                                           Name = _event.Name,
-                                          CreatorName = _joinedCreatorEvent.FullName,
+                                          CreatorName = _joinedCreatorEvent?.FullName,
+                                          CreatorAvatar = _joinedCreatorEvent?.Avatar,
                                           Description = _event.Description,
                                           CoverImage = _joinedCoverImageEvent.FilePath,
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
                                           Promotion = _event.Promotion,
+                                          IsPrivate = _event.IsPrivate,
+                                          IsTrash = (bool)_event.IsTrash,
                                           Status = _event.Status,
                                           LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}" : "",
                                           CreatedAt = _event.CreatedAt,
@@ -252,6 +265,16 @@ namespace EventHubSolution.BackendServer.Controllers
                 _cacheService.SetData<IEnumerable<EventVm>>(CacheKey.EVENTS, eventVms, expiryTime);
             }
 
+            var metadata = new EventMetadata(
+                eventVms.Count(),
+                filter.page,
+                filter.size,
+                filter.takeAll,
+                eventVms.Count(e => !e.IsPrivate),
+                eventVms.Count(e => e.IsPrivate),
+                eventVms.Count(e => (bool)e.IsTrash)
+            );
+
             if (filter.search != null)
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -292,14 +315,27 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e => filter.priceRange.StartRange <= e.PriceRange.StartRange && filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
             }
 
-            var metadata = new Metadata(eventVms.Count(), filter.page, filter.size, filter.takeAll);
+            switch (filter.eventPrivacy)
+            {
+                case EventPrivacy.PUBLIC:
+                    eventVms = eventVms.Where(c => !c.IsPrivate).ToList();
+                    break;
+                case EventPrivacy.PRIVATE:
+                    eventVms = eventVms.Where(c => c.IsPrivate).ToList();
+                    break;
+                case EventPrivacy.TRASH:
+                    eventVms = eventVms.Where(c => c.IsTrash).ToList();
+                    break;
+                default:
+                    break;
+            }
 
             if (filter.takeAll == false)
             {
                 eventVms = eventVms.Skip((filter.page - 1) * filter.size).Take(filter.size).ToList();
             }
 
-            var pagination = new Pagination<EventVm>
+            var pagination = new Pagination<EventVm, EventMetadata>
             {
                 Items = eventVms,
                 Metadata = metadata,
@@ -655,6 +691,9 @@ namespace EventHubSolution.BackendServer.Controllers
             }
 
             reviewVms = reviewVms.Where(r => r.EventId == eventId).ToList();
+
+            var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
+
             if (filter.search != null)
             {
                 reviewVms = reviewVms.Where(c => c.Content.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -667,15 +706,13 @@ namespace EventHubSolution.BackendServer.Controllers
                 _ => reviewVms
             };
 
-            var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
-
             if (filter.takeAll == false)
             {
                 reviewVms = reviewVms.Skip((filter.page - 1) * filter.size)
                     .Take(filter.size).ToList();
             }
 
-            var pagination = new Pagination<ReviewVm>
+            var pagination = new Pagination<ReviewVm, Metadata>
             {
                 Items = reviewVms,
                 Metadata = metadata,

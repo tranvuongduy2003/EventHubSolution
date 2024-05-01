@@ -9,6 +9,8 @@ namespace EventHubSolution.ViewModels.Contents
 
         public string CreatorName { get; set; }
 
+        public string CreatorAvatar { get; set; }
+
         public string CoverImage { get; set; }
 
         public string Name { get; set; }
@@ -22,6 +24,10 @@ namespace EventHubSolution.ViewModels.Contents
         public DateTime StartTime { get; set; }
 
         public DateTime EndTime { get; set; }
+
+        public bool IsPrivate { get; set; }
+
+        public bool IsTrash { get; set; }
 
         public List<CategoryVm> Categories { get; set; }
 

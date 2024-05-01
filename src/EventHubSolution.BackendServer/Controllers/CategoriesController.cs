@@ -64,7 +64,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(GetById), categoryVm, request);
+                return CreatedAtAction(nameof(PostCategory), categoryVm, request);
             }
             else
             {
@@ -88,6 +88,8 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var fileStorages = await _fileService.GetListFileStoragesAsync();
 
+            var metadata = new Metadata(categories.Count(), filter.page, filter.size, filter.takeAll);
+
             if (filter.search != null)
             {
                 categories = categories.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -99,8 +101,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => categories.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => categories
             };
-
-            var metadata = new Metadata(categories.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
@@ -136,7 +136,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpGet("{id}")]
         [ClaimRequirement(FunctionCode.CONTENT_CATEGORY, CommandCode.VIEW)]
-        public async Task<IActionResult> GetById(string id)
+        public async Task<IActionResult> GetCategoryById(string id)
         {
             // Check cache data
             CategoryVm categoryVm = null;

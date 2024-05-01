@@ -60,5 +60,19 @@ namespace EventHubSolution.ViewModels.General
                 _categoryIds = value;
             }
         }
+
+        private EventPrivacy? _eventPrivacy = EventPrivacy.ALL;
+        [DefaultValue(EventPrivacy.ALL)]
+        public EventPrivacy? eventPrivacy
+        {
+            get
+            {
+                return _eventPrivacy;
+            }
+            set
+            {
+                _eventPrivacy = value;
+            }
+        }
     }
 }

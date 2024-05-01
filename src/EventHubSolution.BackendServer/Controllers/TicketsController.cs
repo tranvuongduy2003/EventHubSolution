@@ -55,6 +55,9 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetTickets([FromQuery] PaginationFilter filter)
         {
             var tickets = _db.Tickets.ToList();
+
+            var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
+
             if (filter.search != null)
             {
                 tickets = tickets.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
@@ -69,8 +72,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => tickets.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => tickets
             };
-
-            var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {

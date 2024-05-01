@@ -60,6 +60,9 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetPayments([FromQuery] PaginationFilter filter)
         {
             var payments = _db.Payments.ToList();
+
+            var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
+
             if (filter.search != null)
             {
                 payments = payments.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
@@ -73,8 +76,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => payments.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => payments
             };
-
-            var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {

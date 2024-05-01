@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Extensions;
 using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
@@ -57,17 +58,44 @@ namespace EventHubSolution.BackendServer.Controllers
                 Status = UserStatus.ACTIVE
             };
 
+            var userVm = new UserVm()
+            {
+                Id = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Dob = user.Dob,
+                FullName = user.FullName,
+                Gender = user.Gender,
+                Bio = user.Bio,
+                NumberOfCreatedEvents = user.NumberOfCreatedEvents,
+                NumberOfFavourites = user.NumberOfFavourites,
+                NumberOfFolloweds = user.NumberOfFolloweds,
+                NumberOfFollowers = user.NumberOfFollowers,
+                Status = user.Status,
+                Roles = new List<string> { UserRole.CUSTOMER.GetDisplayName(), UserRole.ORGANIZER.GetDisplayName() },
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt
+            };
+
             //TODO: Upload avatar image
             if (request.Avatar != null)
             {
                 var avatarImage = await _fileService.SaveFileToFileStorageAsync(request.Avatar, FileContainer.USERS);
                 user.AvatarId = avatarImage.Id;
+                userVm.Avatar = avatarImage.FilePath;
             }
 
             var result = await _userManager.CreateAsync(user, request.Password);
+
             if (result.Succeeded)
             {
-                return CreatedAtAction(nameof(GetById), new { id = user.Id }, request);
+                await _userManager.AddToRolesAsync(user, new List<string> { UserRole.CUSTOMER.GetDisplayName(), UserRole.ORGANIZER.GetDisplayName() });
+
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<UserVm>($"{CacheKey.USER}{userVm.Id}", userVm, expiryTime);
+
+                return CreatedAtAction(nameof(PostUser), userVm, request);
             }
             else
             {
@@ -79,33 +107,18 @@ namespace EventHubSolution.BackendServer.Controllers
         [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.VIEW)]
         public async Task<IActionResult> GetUsers([FromQuery] PaginationFilter filter)
         {
-            var users = _userManager.Users.ToList();
-            var fileStorages = await _fileService.GetListFileStoragesAsync();
-
-            if (filter.search != null)
+            // Check cache data
+            var userVms = new List<UserVm>();
+            var cacheUserVms = _cacheService.GetData<IEnumerable<UserVm>>(CacheKey.USERS);
+            if (cacheUserVms != null && cacheUserVms.Count() > 0)
+                userVms = cacheUserVms.ToList();
+            else
             {
-                users = users.Where(u =>
-                    u.FullName.ToLower().Contains(filter.search.ToLower()) ||
-                    u.Email.ToLower().Contains(filter.search.ToLower()) ||
-                    u.UserName.ToLower().Contains(filter.search.ToLower())).ToList();
-            }
+                var users = _userManager.Users.ToList();
 
-            users = filter.order switch
-            {
-                PageOrder.ASC => users.OrderBy(u => u.CreatedAt).ToList(),
-                PageOrder.DESC => users.OrderByDescending(u => u.CreatedAt).ToList(),
-                _ => users
-            };
+                var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-            var metadata = new Metadata(users.Count(), filter.page, filter.size, filter.takeAll);
-
-            if (filter.takeAll == false)
-            {
-                users = users.Skip((filter.page - 1) * filter.size)
-                    .Take(filter.size).ToList();
-            }
-
-            var userVms = (from u in users
+                userVms = (from u in users
                            join f in fileStorages
                                on u.AvatarId equals f.Id
                                into UsersWithAvatar
@@ -129,6 +142,30 @@ namespace EventHubSolution.BackendServer.Controllers
                                CreatedAt = u.CreatedAt,
                                UpdatedAt = u.UpdatedAt
                            }).ToList();
+            }
+
+            var metadata = new Metadata(userVms.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.search != null)
+            {
+                userVms = userVms.Where(u =>
+                    u.FullName.ToLower().Contains(filter.search.ToLower()) ||
+                    u.Email.ToLower().Contains(filter.search.ToLower()) ||
+                    u.UserName.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            userVms = filter.order switch
+            {
+                PageOrder.ASC => userVms.OrderBy(u => u.CreatedAt).ToList(),
+                PageOrder.DESC => userVms.OrderByDescending(u => u.CreatedAt).ToList(),
+                _ => userVms
+            };
+
+            if (filter.takeAll == false)
+            {
+                userVms = userVms.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
 
             var pagination = new Pagination<UserVm>
             {
@@ -143,36 +180,47 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpGet("{id}")]
         [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.VIEW)]
-        public async Task<IActionResult> GetById(string id)
+        public async Task<IActionResult> GetUserById(string id)
         {
-            var user = await _userManager.FindByIdAsync(id);
-            if (user == null)
-                return NotFound(new ApiNotFoundResponse(""));
-
-            var avatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
-
-            var roles = await _userManager.GetRolesAsync(user);
-
-            var userVm = new UserVm()
+            UserVm userVm = null;
+            var cacheUserVm = _cacheService.GetData<UserVm>($"{CacheKey.USER}{id}");
+            if (cacheUserVm != null)
+                userVm = cacheUserVm;
+            else
             {
-                Id = user.Id,
-                UserName = user.UserName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Dob = user.Dob,
-                FullName = user.FullName,
-                Gender = user.Gender,
-                Bio = user.Bio,
-                NumberOfCreatedEvents = user.NumberOfCreatedEvents,
-                NumberOfFavourites = user.NumberOfFavourites,
-                NumberOfFolloweds = user.NumberOfFolloweds,
-                NumberOfFollowers = user.NumberOfFollowers,
-                Status = user.Status,
-                Avatar = avatar.FilePath,
-                Roles = roles.ToList(),
-                CreatedAt = user.CreatedAt,
-                UpdatedAt = user.UpdatedAt
-            };
+                var user = await _userManager.FindByIdAsync(id);
+                if (user == null)
+                    return NotFound(new ApiNotFoundResponse(""));
+
+                var avatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
+
+                var roles = await _userManager.GetRolesAsync(user);
+
+                userVm = new UserVm()
+                {
+                    Id = user.Id,
+                    UserName = user.UserName,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Dob = user.Dob,
+                    FullName = user.FullName,
+                    Gender = user.Gender,
+                    Bio = user.Bio,
+                    NumberOfCreatedEvents = user.NumberOfCreatedEvents,
+                    NumberOfFavourites = user.NumberOfFavourites,
+                    NumberOfFolloweds = user.NumberOfFolloweds,
+                    NumberOfFollowers = user.NumberOfFollowers,
+                    Status = user.Status,
+                    Avatar = avatar.FilePath,
+                    Roles = roles.ToList(),
+                    CreatedAt = user.CreatedAt,
+                    UpdatedAt = user.UpdatedAt
+                };
+
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<UserVm>($"{CacheKey.USER}{userVm.Id}", userVm, expiryTime);
+            }
+
             return Ok(new ApiOkResponse(userVm));
         }
 
@@ -193,18 +241,42 @@ namespace EventHubSolution.BackendServer.Controllers
             user.Gender = request.Gender;
             user.Bio = request.Bio;
 
+            var userVm = new UserVm()
+            {
+                Id = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Dob = user.Dob,
+                FullName = user.FullName,
+                Gender = user.Gender,
+                Bio = user.Bio,
+                NumberOfCreatedEvents = user.NumberOfCreatedEvents,
+                NumberOfFavourites = user.NumberOfFavourites,
+                NumberOfFolloweds = user.NumberOfFolloweds,
+                NumberOfFollowers = user.NumberOfFollowers,
+                Status = user.Status,
+                Roles = new List<string> { UserRole.CUSTOMER.GetDisplayName(), UserRole.ORGANIZER.GetDisplayName() },
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt
+            };
+
             //TODO: Upload avatar image
             if (request.Avatar != null)
             {
                 var avatarImage = await _fileService.SaveFileToFileStorageAsync(request.Avatar, FileContainer.USERS);
                 user.AvatarId = avatarImage.Id;
+                userVm.Avatar = avatarImage.FilePath;
             }
 
             var result = await _userManager.UpdateAsync(user);
 
             if (result.Succeeded)
             {
-                return Ok();
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<UserVm>($"{CacheKey.USER}{userVm.Id}", userVm, expiryTime);
+
+                return Ok(userVm);
             }
 
             return BadRequest(new ApiBadRequestResponse(result));
@@ -260,6 +332,8 @@ namespace EventHubSolution.BackendServer.Controllers
                     UpdatedAt = user.UpdatedAt
                 };
 
+                _cacheService.RemoveData($"{CacheKey.USER}{userVm.Id}");
+
                 return Ok(new ApiOkResponse(userVm));
             }
 
@@ -303,42 +377,49 @@ namespace EventHubSolution.BackendServer.Controllers
             if (user == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {userId} is not existed."));
 
-            var reviews = _db.Reviews.Where(r => r.UserId == userId).ToList();
-            if (filter.search != null)
+            // Check cache data
+            var reviewVms = new List<ReviewVm>();
+            var cacheReviewVms = _cacheService.GetData<IEnumerable<ReviewVm>>(CacheKey.REVIEWS);
+            if (cacheReviewVms != null && cacheReviewVms.Count() > 0)
+                reviewVms = cacheReviewVms.ToList();
+            else
             {
-                reviews = reviews.Where(c => c.Content.ToLower().Contains(filter.search.ToLower())).ToList();
+                var userAvatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
+                reviewVms = _db.Reviews.Where(r => r.UserId == userId).ToList().Join(_db.Events, _review => _review.EventId, _event => _event.Id,
+                    (_review, _event) => new ReviewVm
+                    {
+                        Id = _review.Id,
+                        EventId = _review.EventId,
+                        EventName = _event.Name,
+                        UserId = _review.UserId,
+                        UserAvatar = userAvatar?.FilePath,
+                        UserName = user?.FullName,
+                        Content = _review.Content,
+                        Rate = _review.Rate,
+                        CreatedAt = _review.CreatedAt,
+                        UpdatedAt = _review.UpdatedAt,
+                    }).ToList();
             }
 
-            reviews = filter.order switch
-            {
-                PageOrder.ASC => reviews.OrderBy(c => c.CreatedAt).ToList(),
-                PageOrder.DESC => reviews.OrderByDescending(c => c.CreatedAt).ToList(),
-                _ => reviews
-            };
+            var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
 
-            var metadata = new Metadata(reviews.Count(), filter.page, filter.size, filter.takeAll);
+            if (filter.search != null)
+            {
+                reviewVms = reviewVms.Where(c => c.Content.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            reviewVms = filter.order switch
+            {
+                PageOrder.ASC => reviewVms.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => reviewVms.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => reviewVms
+            };
 
             if (filter.takeAll == false)
             {
-                reviews = reviews.Skip((filter.page - 1) * filter.size)
+                reviewVms = reviewVms.Skip((filter.page - 1) * filter.size)
                     .Take(filter.size).ToList();
             }
-
-            var userAvatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
-            var reviewVms = reviews.Join(_db.Events, _review => _review.EventId, _event => _event.Id,
-                (_review, _event) => new ReviewVm
-                {
-                    Id = _review.Id,
-                    EventId = _review.EventId,
-                    EventName = _event.Name,
-                    UserId = _review.UserId,
-                    UserAvatar = userAvatar?.FilePath,
-                    UserName = user?.FullName,
-                    Content = _review.Content,
-                    Rate = _review.Rate,
-                    CreatedAt = _review.CreatedAt,
-                    UpdatedAt = _review.UpdatedAt,
-                }).ToList();
 
             var pagination = new Pagination<ReviewVm>
             {
@@ -360,9 +441,235 @@ namespace EventHubSolution.BackendServer.Controllers
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {userId} is not existed."));
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
+
+            var eventCategories = (from _eventCategory in _db.EventCategories.ToList()
+                                   join _categoryVm in (from _category in _db.Categories.ToList()
+                                                        join _fileStorage in fileStorages
+                                                            on _category.IconImageId equals _fileStorage.Id
+                                                            into joinedCategories
+                                                        from _joinedCategory in joinedCategories.DefaultIfEmpty()
+                                                        select new CategoryVm
+                                                        {
+                                                            Id = _category.Id,
+                                                            Color = _category.Color,
+                                                            IconImage = _joinedCategory != null ? _joinedCategory.FilePath : "",
+                                                            Name = _category.Name,
+                                                            CreatedAt = _category.CreatedAt,
+                                                            UpdatedAt = _category.UpdatedAt,
+                                                        })
+                                       on _eventCategory.CategoryId equals _categoryVm.Id
+                                       into joinedEventCategories
+                                   from _joinedEventCategory in joinedEventCategories.DefaultIfEmpty()
+                                   select new
+                                   {
+                                       EventId = _eventCategory.EventId,
+                                       CategoryId = _eventCategory.CategoryId,
+                                       CategoryVm = _joinedEventCategory,
+                                   }
+            );
+
+            var eventDatas = _db.FavouriteEvents.ToList()
+                .Join(_db.Events.ToList(), _favouriteEvent => _favouriteEvent.EventId, _event => _event.Id,
+                    (_favouriteEvent, _event) => new
+                    {
+                        _favouriteEvent,
+                        _event
+                    })
+                .Where(joinedEvent => joinedEvent._favouriteEvent.UserId == userId)
+                .Select(joinedEvent => joinedEvent._event)
+                .ToList();
+
+            var joinedEventVms = (from _event in eventDatas
+                                  join _fileStorage in fileStorages
+                                      on _event.CoverImageId equals _fileStorage.Id
+                                      into joinedCoverImageEvents
+                                  from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
+                                  join _location in _db.Locations.ToList()
+                                      on _event.Id equals _location.EventId
+                                      into joinedLocationEvents
+                                  from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
+                                  join _user in (from u in _userManager.Users.ToList()
+                                                 join f in fileStorages
+                                                     on u.AvatarId equals f.Id
+                                                     into UsersWithAvatar
+                                                 from uwa in UsersWithAvatar.DefaultIfEmpty()
+                                                 select new
+                                                 {
+                                                     Id = u.Id,
+                                                     FullName = u.FullName,
+                                                     Avatar = uwa?.FilePath,
+                                                 })
+                                      on _event.CreatorId equals _user.Id
+                                      into joinedCreatorEvents
+                                  from _joinedCreatorEvent in joinedCreatorEvents.DefaultIfEmpty()
+                                  select new EventVm
+                                  {
+                                      Id = _event.Id,
+                                      Name = _event.Name,
+                                      CreatorName = _joinedCreatorEvent?.FullName,
+                                      CreatorAvatar = _joinedCreatorEvent?.Avatar,
+                                      Description = _event.Description,
+                                      CoverImage = _joinedCoverImageEvent.FilePath,
+                                      StartTime = _event.StartTime,
+                                      EndTime = _event.EndTime,
+                                      Promotion = _event.Promotion,
+                                      Status = _event.Status,
+                                      IsPrivate = _event.IsPrivate,
+                                      IsTrash = (bool)_event.IsTrash,
+                                      LocationString = _joinedLocationEvent != null
+                                          ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}"
+                                          : "",
+                                      CreatedAt = _event.CreatedAt,
+                                      UpdatedAt = _event.UpdatedAt
+                                  }).ToList();
+
+            var joinedTicketTypeEventVms = (from _eventVm in joinedEventVms
+                                            join _ticketType in _db.TicketTypes.ToList()
+                                                on _eventVm.Id equals _ticketType.EventId
+                                                into joinedTicketTypeEvents
+                                            from _joinedTicketTypeEvent in joinedTicketTypeEvents.DefaultIfEmpty()
+                                            select new
+                                            {
+                                                _eventVm,
+                                                _joinedTicketTypeEvent
+                                            })
+                .GroupBy(joinedTicketTypeEvent => joinedTicketTypeEvent._eventVm)
+                .AsEnumerable()
+                .Select(groupedEventVm =>
+                {
+                    EventVm eventVm = groupedEventVm.Key;
+                    eventVm.PriceRange = new PriceRangeVm
+                    {
+                        StartRange = groupedEventVm.Min(e => e._joinedTicketTypeEvent != null ? e._joinedTicketTypeEvent.Price : 1000000000),
+                        EndRange = groupedEventVm.Max(e => e._joinedTicketTypeEvent != null ? e._joinedTicketTypeEvent.Price : 0)
+                    };
+                    return eventVm;
+                })
+                .DistinctBy(e => e.Id)
+                .ToList();
+
+            var eventVms = (from _eventVm in joinedTicketTypeEventVms
+                            join _eventCategory in eventCategories
+                                on _eventVm.Id equals _eventCategory.EventId
+                                into joinedCategoryEvents
+                            from _joinedCategoryEvent in joinedCategoryEvents.DefaultIfEmpty()
+                            select new
+                            {
+                                _eventVm,
+                                _joinedCategoryEvent
+                            })
+                .GroupBy(joinedEvent => joinedEvent._eventVm)
+                .Select(groupedEvent =>
+                {
+                    var eventVm = groupedEvent.Key;
+                    eventVm.Categories = groupedEvent
+                        .Where(e => e._joinedCategoryEvent != null)
+                        .Select(e => e._joinedCategoryEvent.CategoryVm)
+                        .ToList();
+                    return eventVm;
+                })
+                .DistinctBy(e => e.Id)
+                .ToList();
+
+            var metadata = new EventMetadata(
+                eventVms.Count(),
+                filter.page,
+                filter.size,
+                filter.takeAll,
+                eventVms.Count(e => !e.IsPrivate),
+                eventVms.Count(e => e.IsPrivate),
+                eventVms.Count(e => (bool)e.IsTrash)
+            );
+
+            if (filter.search != null)
+            {
+                eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            eventVms = filter.order switch
+            {
+                PageOrder.ASC => eventVms.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => eventVms.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => eventVms
+            };
+
+            switch (filter.type)
+            {
+                case EventType.OPENING:
+                    eventVms = eventVms.Where(e => e.StartTime <= DateTime.UtcNow && DateTime.UtcNow <= e.EndTime)
+                        .ToList();
+                    break;
+                case EventType.UPCOMING:
+                    eventVms = eventVms.Where(e => DateTime.UtcNow < e.StartTime).ToList();
+                    break;
+                case EventType.CLOSED:
+                    eventVms = eventVms.Where(e => e.EndTime < DateTime.UtcNow).ToList();
+                    break;
+            }
+
+            if (!filter.location.IsNullOrEmpty())
+            {
+                eventVms = eventVms.Where(e =>
+                        e.LocationString.Split(", ").Any(str => filter.location.ToLower().Contains(str.ToLower())))
+                    .ToList();
+            }
+
+            if (!filter.categoryIds.IsNullOrEmpty())
+            {
+                eventVms = eventVms.Where(e => e.Categories.Exists(c => filter.categoryIds.Contains(c.Id))).ToList();
+            }
+
+            if (filter.priceRange != null)
+            {
+                eventVms = eventVms.Where(e =>
+                    filter.priceRange.StartRange <= e.PriceRange.StartRange &&
+                    filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
+            }
+
+            switch (filter.eventPrivacy)
+            {
+                case EventPrivacy.PUBLIC:
+                    eventVms = eventVms.Where(c => !c.IsPrivate).ToList();
+                    break;
+                case EventPrivacy.PRIVATE:
+                    eventVms = eventVms.Where(c => c.IsPrivate).ToList();
+                    break;
+                case EventPrivacy.TRASH:
+                    eventVms = eventVms.Where(c => c.IsTrash).ToList();
+                    break;
+                default:
+                    break;
+            }
+
+            if (filter.takeAll == false)
+            {
+                eventVms = eventVms.Skip((filter.page - 1) * filter.size).Take(filter.size).ToList();
+            }
+
+            var pagination = new Pagination<EventVm, EventMetadata>
+            {
+                Items = eventVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
+
+        [HttpGet("{userId}/events")]
+        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.VIEW)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> GetEventsByUserId(string userId,
+            [FromQuery] EventPaginationFilter filter)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} is not existed."));
             // Check cache data
             var eventVms = new List<EventVm>();
-            var cacheEventVms = _cacheService.GetData<IEnumerable<EventVm>>(CacheKey.EVENTS);
+            var cacheEventVms = _cacheService.GetData<IEnumerable<EventVm>>($"{CacheKey.EVENTS}{userId}");
             if (cacheEventVms != null && cacheEventVms.Count() > 0)
                 eventVms = cacheEventVms.ToList();
             else
@@ -392,7 +699,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                            CategoryVm = _joinedEventCategory,
                                        }).ToList();
 
-                var joinedEventVms = (from _event in _db.Events.ToList()
+                var joinedEventVms = (from _event in _db.Events.Where(e => e.CreatorId.Equals(userId)).ToList()
                                       join _fileStorage in fileStorages
                                       on _event.CoverImageId equals _fileStorage.Id
                                       into joinedCoverImageEvents
@@ -401,7 +708,17 @@ namespace EventHubSolution.BackendServer.Controllers
                                       on _event.Id equals _location.EventId
                                       into joinedLocationEvents
                                       from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
-                                      join _user in _userManager.Users.ToList()
+                                      join _user in (from u in _userManager.Users.ToList()
+                                                     join f in fileStorages
+                                                         on u.AvatarId equals f.Id
+                                                         into UsersWithAvatar
+                                                     from uwa in UsersWithAvatar.DefaultIfEmpty()
+                                                     select new
+                                                     {
+                                                         Id = u.Id,
+                                                         FullName = u.FullName,
+                                                         Avatar = uwa?.FilePath,
+                                                     })
                                       on _event.CreatorId equals _user.Id
                                       into joinedCreatorEvents
                                       from _joinedCreatorEvent in joinedCreatorEvents.DefaultIfEmpty()
@@ -409,13 +726,16 @@ namespace EventHubSolution.BackendServer.Controllers
                                       {
                                           Id = _event.Id,
                                           Name = _event.Name,
-                                          CreatorName = _joinedCreatorEvent.FullName,
+                                          CreatorName = _joinedCreatorEvent?.FullName,
+                                          CreatorAvatar = _joinedCreatorEvent?.Avatar,
                                           Description = _event.Description,
                                           CoverImage = _joinedCoverImageEvent.FilePath,
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
                                           Promotion = _event.Promotion,
                                           Status = _event.Status,
+                                          IsPrivate = _event.IsPrivate,
+                                          IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
                                           LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}" : "",
                                           CreatedAt = _event.CreatedAt,
                                           UpdatedAt = _event.UpdatedAt
@@ -475,6 +795,16 @@ namespace EventHubSolution.BackendServer.Controllers
                 _cacheService.SetData<IEnumerable<EventVm>>(CacheKey.EVENTS, eventVms, expiryTime);
             }
 
+            var metadata = new EventMetadata(
+                eventVms.Count(),
+                filter.page,
+                filter.size,
+                filter.takeAll,
+                eventVms.Count(e => !e.IsPrivate),
+                eventVms.Count(e => e.IsPrivate),
+                eventVms.Count(e => (bool)e.IsTrash)
+            );
+
             if (filter.search != null)
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -520,14 +850,27 @@ namespace EventHubSolution.BackendServer.Controllers
                     filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
             }
 
-            var metadata = new Metadata(eventVms.Count(), filter.page, filter.size, filter.takeAll);
+            switch (filter.eventPrivacy)
+            {
+                case EventPrivacy.PUBLIC:
+                    eventVms = eventVms.Where(c => !c.IsPrivate).ToList();
+                    break;
+                case EventPrivacy.PRIVATE:
+                    eventVms = eventVms.Where(c => c.IsPrivate).ToList();
+                    break;
+                case EventPrivacy.TRASH:
+                    eventVms = eventVms.Where(c => c.IsTrash).ToList();
+                    break;
+                default:
+                    break;
+            }
 
             if (filter.takeAll == false)
             {
                 eventVms = eventVms.Skip((filter.page - 1) * filter.size).Take(filter.size).ToList();
             }
 
-            var pagination = new Pagination<EventVm>
+            var pagination = new Pagination<EventVm, EventMetadata>
             {
                 Items = eventVms,
                 Metadata = metadata,
@@ -572,7 +915,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(GetById),
+                return CreatedAtAction(nameof(PostFollowUser),
                     new { followerId = userFollower.FollowerId, followedId = userFollower.FollowedId }, request);
             }
             else

@@ -1,5 +1,5 @@
-﻿using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.BackendServer.Data.Interfaces;
+﻿using EventHubSolution.BackendServer.Data.Interfaces;
+using EventHubSolution.ViewModels.Constants;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -54,6 +54,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public EventStatus Status { get; set; }
+
+        public bool IsPrivate { get; set; } = false;
+
+        public bool? IsTrash { get; set; } = false;
 
         public DateTime CreatedAt { get; set; }
 

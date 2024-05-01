@@ -53,6 +53,9 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetRoles([FromQuery] PaginationFilter filter)
         {
             var role = _roleManager.Roles.ToList();
+
+            var metadata = new Metadata(role.Count(), filter.page, filter.size, filter.takeAll);
+
             if (filter.search != null)
             {
                 role = role.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -64,8 +67,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => role.OrderByDescending(c => c.Name).ToList(),
                 _ => role
             };
-
-            var metadata = new Metadata(role.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {

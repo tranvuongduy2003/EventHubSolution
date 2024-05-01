@@ -57,6 +57,9 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetFunctions([FromQuery] PaginationFilter filter)
         {
             var functions = _db.Functions.ToList();
+
+            var metadata = new Metadata(functions.Count(), filter.page, filter.size, filter.takeAll);
+
             if (filter.search != null)
             {
                 functions = functions.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -68,8 +71,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => functions.OrderByDescending(c => c.SortOrder).ToList(),
                 _ => functions
             };
-
-            var metadata = new Metadata(functions.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
