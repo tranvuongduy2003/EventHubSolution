@@ -145,8 +145,7 @@ namespace EventHubSolution.BackendServer.Extentions
                 .AddTransient<ISequenceService, SequenceService>()
                 .AddTransient<IFileStorageService, FileStorageService>()
                 .AddTransient<ITokenService, TokenService>()
-                .AddTransient<ICacheService, CacheService>()
-                .AddTransient<IEntitiesService, EntitiesService>();
+                .AddTransient<ICacheService, CacheService>();
 
             services.AddSingleton<AzureBlobService>();
 

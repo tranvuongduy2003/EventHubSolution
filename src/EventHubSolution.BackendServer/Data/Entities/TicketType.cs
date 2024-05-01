@@ -26,7 +26,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public int Quantity { get; set; } = 0;
 
         [Required]
-        [Range(0, Double.PositiveInfinity)]
+        [Range(0, 1000000000)]
         public long Price { get; set; }
 
         [Range(0, Double.PositiveInfinity)]

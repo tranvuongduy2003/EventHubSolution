@@ -146,8 +146,8 @@ namespace EventHubSolution.BackendServer.Controllers
             {
                 var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-                var eventCategories = (from _eventCategory in _db.EventCategories
-                                       join _categoryVm in (from _category in _db.Categories
+                var eventCategories = (from _eventCategory in _db.EventCategories.ToList()
+                                       join _categoryVm in (from _category in _db.Categories.ToList()
                                                             join _fileStorage in fileStorages
                                                             on _category.IconImageId equals _fileStorage.Id
                                                             into joinedCategories
@@ -157,9 +157,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                                                 Id = _category.Id,
                                                                 Color = _category.Color,
                                                                 IconImage = _joinedCategory != null ? _joinedCategory.FilePath : "",
-                                                                Name = _category.Name,
-                                                                CreatedAt = _category.CreatedAt,
-                                                                UpdatedAt = _category.UpdatedAt,
+                                                                Name = _category.Name
                                                             })
                                        on _eventCategory.CategoryId equals _categoryVm.Id
                                        into joinedEventCategories
@@ -171,16 +169,16 @@ namespace EventHubSolution.BackendServer.Controllers
                                            CategoryVm = _joinedEventCategory,
                                        }).ToList();
 
-                var joinedEventVms = (from _event in _db.Events
+                var joinedEventVms = (from _event in _db.Events.ToList()
                                       join _fileStorage in fileStorages
                                       on _event.CoverImageId equals _fileStorage.Id
                                       into joinedCoverImageEvents
                                       from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
-                                      join _location in _db.Locations
+                                      join _location in _db.Locations.ToList()
                                       on _event.Id equals _location.EventId
                                       into joinedLocationEvents
                                       from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
-                                      join _user in _userManager.Users
+                                      join _user in _userManager.Users.ToList()
                                       on _event.CreatorId equals _user.Id
                                       into joinedCreatorEvents
                                       from _joinedCreatorEvent in joinedCreatorEvents.DefaultIfEmpty()
@@ -190,15 +188,9 @@ namespace EventHubSolution.BackendServer.Controllers
                                           Name = _event.Name,
                                           CreatorName = _joinedCreatorEvent.FullName,
                                           Description = _event.Description,
-                                          CoverImageId = _event.CoverImageId,
                                           CoverImage = _joinedCoverImageEvent.FilePath,
-                                          CreatorId = _event.CreatorId,
-                                          LocationId = _joinedLocationEvent.Id,
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
-                                          NumberOfFavourites = _event.NumberOfFavourites,
-                                          NumberOfShares = _event.NumberOfShares,
-                                          NumberOfSoldTickets = _event.NumberOfSoldTickets,
                                           Promotion = _event.Promotion,
                                           Status = _event.Status,
                                           LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}" : "",
@@ -207,7 +199,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                       }).ToList();
 
                 var joinedTicketTypeEventVms = (from _eventVm in joinedEventVms
-                                                join _ticketType in _db.TicketTypes
+                                                join _ticketType in _db.TicketTypes.ToList()
                                                 on _eventVm.Id equals _ticketType.EventId
                                                 into joinedTicketTypeEvents
                                                 from _joinedTicketTypeEvent in joinedTicketTypeEvents.DefaultIfEmpty()
@@ -223,8 +215,8 @@ namespace EventHubSolution.BackendServer.Controllers
                                         EventVm eventVm = groupedEventVm.Key;
                                         eventVm.PriceRange = new PriceRangeVm
                                         {
-                                            StartRange = groupedEventVm.Min(e => e._joinedTicketTypeEvent.Price),
-                                            EndRange = groupedEventVm.Max(e => e._joinedTicketTypeEvent.Price)
+                                            StartRange = groupedEventVm.Min(e => e._joinedTicketTypeEvent != null ? e._joinedTicketTypeEvent.Price : 1000000000),
+                                            EndRange = groupedEventVm.Max(e => e._joinedTicketTypeEvent != null ? e._joinedTicketTypeEvent.Price : 0)
                                         };
                                         return eventVm;
                                     })
@@ -253,6 +245,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                     })
                                     .DistinctBy(e => e.Id)
                                     .ToList();
+
 
                 // Set expiry time
                 var expiryTime = DateTimeOffset.Now.AddMinutes(45);
@@ -318,7 +311,7 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(string id)
+        public async Task<IActionResult> GetEventById(string id)
         {
             // Check cache data
             EventDetailVm eventDataVm = null;
@@ -569,7 +562,7 @@ namespace EventHubSolution.BackendServer.Controllers
         #endregion
 
         #region Reviews
-        [HttpPost("{eventId}/reviews")]
+        [HttpPost("{eventId}/reviewVms")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.CREATE)]
         [ApiValidationFilter]
         public async Task<IActionResult> PostReview(string eventId, [FromBody] ReviewCreateRequest request)
@@ -586,12 +579,26 @@ namespace EventHubSolution.BackendServer.Controllers
                 UserId = request.UserId,
                 Rate = request.Rate,
             };
-            _db.Reviews.Add(review);
+            var addedReview = _db.Reviews.Add(review);
             var result = await _db.SaveChangesAsync();
+
+            var reviewVm = new ReviewVm
+            {
+                Id = addedReview.Entity.Id,
+                EventId = addedReview.Entity.EventId,
+                Content = addedReview.Entity.Content,
+                UserId = addedReview.Entity.UserId,
+                Rate = addedReview.Entity.Rate,
+                CreatedAt = addedReview.Entity.CreatedAt,
+                UpdatedAt = addedReview.Entity.UpdatedAt,
+            };
+
+            var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+            _cacheService.SetData<ReviewVm>($"{CacheKey.REVIEW}{reviewVm.Id}", reviewVm, expiryTime);
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(GetById), new { id = review.Id }, request);
+                return CreatedAtAction(nameof(PostReview), reviewVm, request);
             }
             else
             {
@@ -599,51 +606,38 @@ namespace EventHubSolution.BackendServer.Controllers
             }
         }
 
-        [HttpGet("{eventId}/reviews")]
+        [HttpGet("{eventId}/reviewVms")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.VIEW)]
         public async Task<IActionResult> GetReviews(string eventId, [FromQuery] PaginationFilter filter)
         {
             var dbEvent = await _db.Reviews.FindAsync(eventId);
             if (dbEvent == null)
                 return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
-            var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-            var reviews = _db.Reviews.Where(r => r.EventId == eventId).ToList();
-            if (filter.search != null)
+            // Check cache data
+            var reviewVms = new List<ReviewVm>();
+            var cacheReviewVms = _cacheService.GetData<IEnumerable<ReviewVm>>(CacheKey.REVIEWS);
+            if (cacheReviewVms != null && cacheReviewVms.Count() > 0)
+                reviewVms = cacheReviewVms.ToList();
+            else
             {
-                reviews = reviews.Where(c => c.Content.ToLower().Contains(filter.search.ToLower())).ToList();
-            }
+                var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-            reviews = filter.order switch
-            {
-                PageOrder.ASC => reviews.OrderBy(c => c.CreatedAt).ToList(),
-                PageOrder.DESC => reviews.OrderByDescending(c => c.CreatedAt).ToList(),
-                _ => reviews
-            };
+                var users = (from _user in _userManager.Users.ToList()
+                             join _fileStorage in fileStorages
+                             on _user.AvatarId equals _fileStorage.Id
+                             into joinedUsers
+                             from _joinedUser in joinedUsers
+                             select new UserVm
+                             {
+                                 Id = _user.Id,
+                                 Email = _user.Email,
+                                 FullName = _user.FullName,
+                                 Avatar = _joinedUser.FilePath,
+                             });
 
-            var metadata = new Metadata(reviews.Count(), filter.page, filter.size, filter.takeAll);
-
-            if (filter.takeAll == false)
-            {
-                reviews = reviews.Skip((filter.page - 1) * filter.size)
-                    .Take(filter.size).ToList();
-            }
-
-            var users = (from _user in _userManager.Users
-                         join _fileStorage in fileStorages
-                         on _user.AvatarId equals _fileStorage.Id
-                         into joinedUsers
-                         from _joinedUser in joinedUsers
-                         select new UserVm
-                         {
-                             Id = _user.Id,
-                             Email = _user.Email,
-                             FullName = _user.FullName,
-                             Avatar = _joinedUser.FilePath,
-                         });
-
-            var reviewVms = (from _review in _db.Reviews
-                             join _event in _db.Events on _review.EventId equals _event.Id
+                reviewVms = (from _review in _db.Reviews.ToList()
+                             join _event in _db.Events.ToList() on _review.EventId equals _event.Id
                              join _user in users on _review.UserId equals _user.Id
                              select new ReviewVm
                              {
@@ -658,6 +652,28 @@ namespace EventHubSolution.BackendServer.Controllers
                                  CreatedAt = _review.CreatedAt,
                                  UpdatedAt = _review.UpdatedAt,
                              }).ToList();
+            }
+
+            reviewVms = reviewVms.Where(r => r.EventId == eventId).ToList();
+            if (filter.search != null)
+            {
+                reviewVms = reviewVms.Where(c => c.Content.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            reviewVms = filter.order switch
+            {
+                PageOrder.ASC => reviewVms.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => reviewVms.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => reviewVms
+            };
+
+            var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.takeAll == false)
+            {
+                reviewVms = reviewVms.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
 
             var pagination = new Pagination<ReviewVm>
             {
@@ -670,43 +686,54 @@ namespace EventHubSolution.BackendServer.Controllers
             return Ok(new ApiOkResponse(pagination));
         }
 
-        [HttpGet("{eventId}/reviews/{reviewId}")]
+        [HttpGet("{eventId}/reviewVms/{reviewId}")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.VIEW)]
-        public async Task<IActionResult> GetById(string eventId, string reviewId)
-        {
-            var review = await _db.Reviews.FindAsync(reviewId);
-            if (review == null)
-                return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
-            var fileStorages = await _fileService.GetListFileStoragesAsync();
-
-            var users = _userManager.Users.Join(fileStorages, _user => _user.AvatarId, _fileStorage => _fileStorage.Id, (_user, _fileStorage) => new UserVm
+        public async Task<IActionResult> GetReviewById(string eventId, string reviewId)
+        {// Check cache data
+            ReviewVm reviewVm = null;
+            var cacheReviewVm = _cacheService.GetData<ReviewVm>($"{CacheKey.REVIEW}{reviewId}");
+            if (cacheReviewVm != null)
+                reviewVm = cacheReviewVm;
+            else
             {
-                Id = _user.Id,
-                Email = _user.Email,
-                FullName = _user.FullName,
-                Avatar = _fileStorage.FilePath,
-            });
-            var reviewUser = users.FirstOrDefault(u => u.Id == review.UserId);
+                var review = await _db.Reviews.FindAsync(reviewId);
+                if (review == null)
+                    return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
+                var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-            var dbEvent = await _db.Events.FindAsync(review.EventId);
+                var users = _userManager.Users.Join(fileStorages, _user => _user.AvatarId, _fileStorage => _fileStorage.Id, (_user, _fileStorage) => new UserVm
+                {
+                    Id = _user.Id,
+                    Email = _user.Email,
+                    FullName = _user.FullName,
+                    Avatar = _fileStorage.FilePath,
+                });
+                var reviewUser = users.FirstOrDefault(u => u.Id == review.UserId);
 
-            var reviewVm = new ReviewVm()
-            {
-                Id = review.Id,
-                EventId = review.EventId,
-                EventName = dbEvent?.Name,
-                UserId = review.UserId,
-                UserAvatar = reviewUser?.Avatar,
-                UserName = reviewUser?.FullName,
-                Content = review.Content,
-                Rate = review.Rate,
-                CreatedAt = review.CreatedAt,
-                UpdatedAt = review.UpdatedAt,
-            };
+                var dbEvent = await _db.Events.FindAsync(review.EventId);
+
+                reviewVm = new ReviewVm()
+                {
+                    Id = review.Id,
+                    EventId = review.EventId,
+                    EventName = dbEvent?.Name,
+                    UserId = review.UserId,
+                    UserAvatar = reviewUser?.Avatar,
+                    UserName = reviewUser?.FullName,
+                    Content = review.Content,
+                    Rate = review.Rate,
+                    CreatedAt = review.CreatedAt,
+                    UpdatedAt = review.UpdatedAt,
+                };
+
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<ReviewVm>($"{CacheKey.REVIEW}{reviewVm.Id}", reviewVm, expiryTime);
+            }
+
             return Ok(new ApiOkResponse(reviewVm));
         }
 
-        [HttpPut("{eventId}/reviews/{reviewId}")]
+        [HttpPut("{eventId}/reviewVms/{reviewId}")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.UPDATE)]
         [ApiValidationFilter]
         public async Task<IActionResult> PutReview(string eventId, string reviewId, [FromBody] ReviewCreateRequest request)
@@ -720,8 +747,22 @@ namespace EventHubSolution.BackendServer.Controllers
             review.Content = request.Content;
             review.Rate = request.Rate;
 
-            _db.Reviews.Update(review);
+            var updatedReview = _db.Reviews.Update(review);
             var result = await _db.SaveChangesAsync();
+
+            var reviewVm = new ReviewVm
+            {
+                Id = updatedReview.Entity.Id,
+                EventId = updatedReview.Entity.EventId,
+                Content = updatedReview.Entity.Content,
+                UserId = updatedReview.Entity.UserId,
+                Rate = updatedReview.Entity.Rate,
+                CreatedAt = updatedReview.Entity.CreatedAt,
+                UpdatedAt = updatedReview.Entity.UpdatedAt,
+            };
+
+            var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+            _cacheService.SetData<ReviewVm>($"{CacheKey.REVIEW}{reviewVm.Id}", reviewVm, expiryTime);
 
             if (result > 0)
             {
@@ -730,7 +771,7 @@ namespace EventHubSolution.BackendServer.Controllers
             return BadRequest(new ApiBadRequestResponse(""));
         }
 
-        [HttpDelete("{eventId}/reviews/{reviewId}")]
+        [HttpDelete("{eventId}/reviewVms/{reviewId}")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.DELETE)]
         public async Task<IActionResult> DeleteReview(string eventId, string reviewId)
         {
@@ -740,6 +781,8 @@ namespace EventHubSolution.BackendServer.Controllers
 
             _db.Reviews.Remove(review);
             var result = await _db.SaveChangesAsync();
+
+            _cacheService.RemoveData($"{CacheKey.REVIEW}{reviewId}");
 
             if (result > 0)
             {
@@ -775,14 +818,17 @@ namespace EventHubSolution.BackendServer.Controllers
 
             _db.FavouriteEvents.Add(favouriteEvent);
 
-            user.NumberOfFavourites += 1;
-            dbEvent.NumberOfFavourites += 1;
-
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(GetById), new { eventId = favouriteEvent.EventId, userId = favouriteEvent.UserId }, request);
+                user.NumberOfFavourites += 1;
+                await _userManager.UpdateAsync(user);
+                dbEvent.NumberOfFavourites += 1;
+                _db.Events.Update(dbEvent);
+                await _db.SaveChangesAsync();
+
+                return Ok(new ApiOkResponse());
             }
             else
             {
@@ -809,13 +855,16 @@ namespace EventHubSolution.BackendServer.Controllers
 
             _db.FavouriteEvents.Remove(dbFavouriteEvent);
 
-            user.NumberOfFavourites -= 1;
-            dbEvent.NumberOfFavourites -= 1;
-
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
             {
+                user.NumberOfFavourites -= 1;
+                await _userManager.UpdateAsync(user);
+                dbEvent.NumberOfFavourites -= 1;
+                _db.Events.Update(dbEvent);
+                await _db.SaveChangesAsync();
+
                 return Ok(new ApiOkResponse());
             }
             else
