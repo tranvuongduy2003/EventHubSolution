@@ -60,8 +60,9 @@ namespace EventHubSolution.BackendServer.Controllers
                 EventId = eventData.Id
             };
             _db.EmailContents.Add(emailContent);
+
             //TODO: Upload email attachments file
-            request.EmailContent.Attachments.ForEach(async attachment =>
+            foreach (var attachment in request.EmailContent.Attachments)
             {
                 FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
                 var emailAttachment = new EmailAttachment()
@@ -70,7 +71,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     EmailContentId = emailContent.Id,
                 };
                 _db.EmailAttachments.Add(emailAttachment);
-            });
+            }
 
             //TODO: Create event location
             var location = new Location()
@@ -84,7 +85,7 @@ namespace EventHubSolution.BackendServer.Controllers
             _db.Locations.Add(location);
 
             //TODO: Create ticket types
-            request.TicketTypes.ForEach(type =>
+            foreach (var type in request.TicketTypes)
             {
                 var ticketType = new TicketType()
                 {
@@ -95,10 +96,10 @@ namespace EventHubSolution.BackendServer.Controllers
                     Quantity = type.Quantity
                 };
                 _db.TicketTypes.Add(ticketType);
-            });
+            }
 
             //TODO: Create event categories
-            request.CategoryIds.ForEach(categoryId =>
+            foreach (var categoryId in request.CategoryIds)
             {
                 var eventCategory = new EventCategory()
                 {
@@ -106,18 +107,23 @@ namespace EventHubSolution.BackendServer.Controllers
                     EventId = eventData.Id,
                 };
                 _db.EventCategories.Add(eventCategory);
-            });
+            }
 
             _db.Events.Add(eventData);
-
-            var user = await _userManager.FindByIdAsync(request.CreatorId);
-            user.NumberOfCreatedEvents += 1;
 
             var result = await _db.SaveChangesAsync();
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(GetById), new { id = eventData.Id }, request);
+                var user = await _userManager.FindByIdAsync(request.CreatorId);
+                user.NumberOfCreatedEvents += 1;
+                await _userManager.UpdateAsync(user);
+                await _db.SaveChangesAsync();
+
+                return CreatedAtAction(nameof(PostEvent), new ApiCreatedResponse(new
+                {
+                    Id = eventData.Id
+                }));
             }
             else
             {
@@ -447,13 +453,13 @@ namespace EventHubSolution.BackendServer.Controllers
             emailContent.Content = request.EmailContent.Content;
             _db.EmailContents.Update(emailContent);
             //TODO: Update email attachments file
-            request.EmailContent.Attachments.ForEach(async attachment =>
+            foreach (var attachment in request.EmailContent.Attachments)
             {
                 FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
                 var emailAttachment = await _db.EmailAttachments.FirstOrDefaultAsync(e => e.EmailContentId == emailContent.Id);
                 emailAttachment.AttachmentId = attachmentFileStorage.Id;
                 _db.EmailAttachments.Update(emailAttachment);
-            });
+            }
 
             //TODO: Udpate event location
             var location = _db.Locations.FirstOrDefault(l => l.EventId == eventData.Id);
@@ -463,19 +469,19 @@ namespace EventHubSolution.BackendServer.Controllers
             _db.Locations.Update(location);
 
             //TODO: Update ticket types
-            request.TicketTypes.ForEach(async type =>
+            foreach (var type in request.TicketTypes)
             {
                 var ticketType = await _db.TicketTypes.FirstOrDefaultAsync(t => t.Name == type.Name);
                 ticketType.Name = type.Name;
                 ticketType.Price = type.Price;
                 ticketType.Quantity = type.Quantity;
                 _db.TicketTypes.Update(ticketType);
-            });
+            }
 
             //TODO: Update event categories
             var eventCategories = _db.EventCategories.Where(e => e.EventId == eventData.Id);
             _db.EventCategories.RemoveRange(eventCategories);
-            request.CategoryIds.ForEach(categoryId =>
+            foreach (var categoryId in request.CategoryIds)
             {
                 var eventCategory = new EventCategory()
                 {
@@ -483,7 +489,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     EventId = eventData.Id,
                 };
                 _db.EventCategories.Add(eventCategory);
-            });
+            }
 
             _db.Events.Update(eventData);
             var result = await _db.SaveChangesAsync();

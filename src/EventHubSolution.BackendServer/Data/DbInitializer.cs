@@ -4,6 +4,7 @@ using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Constants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Extensions;
+using Function = EventHubSolution.BackendServer.Data.Entities.Function;
 
 namespace EventHubSolution.BackendServer.Data
 {
@@ -154,14 +155,13 @@ namespace EventHubSolution.BackendServer.Data
                     new Function { Id = FunctionCode.CONTENT_REVIEW.GetDisplayName(), Name = "Đánh giá", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 3, Url = "/content/review" },
                     new Function { Id = FunctionCode.CONTENT_TICKET.GetDisplayName(), Name = "Vé", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 3, Url = "/content/ticket" },
 
-                    new Function { Id = "STATISTIC", Name = "Thống kê", ParentId = null, Url = "/statistic" },
+                    new Function { Id = FunctionCode.STATISTIC.GetDisplayName(), Name = "Thống kê", ParentId = null, Url = "/statistic" },
+                    new Function { Id = FunctionCode.SYSTEM.GetDisplayName(), Name = "Hệ thống", ParentId = null, Url = "/system" },
 
-                    new Function { Id = "SYSTEM", Name = "Hệ thống", ParentId = null, Url = "/system" },
-
-                    new Function { Id = "SYSTEM_USER", Name = "Người dùng", ParentId = "SYSTEM", Url = "/system/user" },
-                    new Function { Id = "SYSTEM_ROLE", Name = "Nhóm quyền", ParentId = "SYSTEM", Url = "/system/role" },
-                    new Function { Id = "SYSTEM_FUNCTION", Name = "Chức năng", ParentId = "SYSTEM", Url = "/system/function" },
-                    new Function { Id = "SYSTEM_PERMISSION", Name = "Quyền hạn", ParentId = "SYSTEM", Url = "/system/permission" },
+                    new Function { Id = FunctionCode.SYSTEM_USER.GetDisplayName(), Name = "Người dùng", ParentId = "SYSTEM", Url = "/system/user" },
+                    new Function { Id = FunctionCode.SYSTEM_ROLE.GetDisplayName(), Name = "Nhóm quyền", ParentId = "SYSTEM", Url = "/system/role" },
+                    new Function { Id = FunctionCode.SYSTEM_FUNCTION.GetDisplayName(), Name = "Chức năng", ParentId = "SYSTEM", Url = "/system/function" },
+                    new Function { Id = FunctionCode.SYSTEM_PERMISSION.GetDisplayName(), Name = "Quyền hạn", ParentId = "SYSTEM", Url = "/system/permission" },
                 });
 
                 await _context.SaveChangesAsync();
@@ -235,6 +235,50 @@ namespace EventHubSolution.BackendServer.Data
                     _context.Permissions.Add(new Permission(function.Id, adminRole.Id, "DELETE"));
                     _context.Permissions.Add(new Permission(function.Id, adminRole.Id, "VIEW"));
                 }
+
+                var customerRole = await _roleManager.FindByNameAsync(UserRole.CUSTOMER.GetDisplayName());
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT.GetDisplayName(), customerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT.GetDisplayName(), customerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT.GetDisplayName(), customerRole.Id, "DELETE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CATEGORY.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_EVENT.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), customerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), customerRole.Id, "DELETE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), customerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), customerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), customerRole.Id, "DELETE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.SYSTEM.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.SYSTEM.GetDisplayName(), customerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.SYSTEM_USER.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.SYSTEM_USER.GetDisplayName(), customerRole.Id, "UPDATE"));
+
+                var organizerRole = await _roleManager.FindByNameAsync(UserRole.ORGANIZER.GetDisplayName());
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT.GetDisplayName(), organizerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT.GetDisplayName(), organizerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT.GetDisplayName(), organizerRole.Id, "DELETE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CATEGORY.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_EVENT.GetDisplayName(), organizerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_EVENT.GetDisplayName(), organizerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_EVENT.GetDisplayName(), organizerRole.Id, "DELETE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_EVENT.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "DELETE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), organizerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), organizerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), organizerRole.Id, "DELETE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), organizerRole.Id, "DELETE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.SYSTEM_USER.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.SYSTEM_USER.GetDisplayName(), organizerRole.Id, "UPDATE"));
+
                 await _context.SaveChangesAsync();
             }
         }

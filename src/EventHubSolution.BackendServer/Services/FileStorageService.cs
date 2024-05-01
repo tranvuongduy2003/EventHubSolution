@@ -37,7 +37,7 @@ namespace EventHubSolution.BackendServer.Services
             {
                 fileStorage = new FileStorage()
                 {
-                    Id = imageFile.Blob.Name,
+                    Id = Guid.NewGuid().ToString(),
                     FileName = imageFile.Blob.Name,
                     FileSize = imageFile.Blob.Size,
                     FileType = imageFile.Blob.ContentType,
