@@ -81,14 +81,14 @@ namespace EventHubSolution.BackendServer.Services
         public async Task<BlobResponseVm> UploadAsync(IFormFile blob, string fileContainer)
         {
             BlobResponseVm response = new();
-            BlobClient client = _filesContainer.GetBlobClient(blob.FileName);
+            BlobClient client = _filesContainer.GetBlobClient($"{fileContainer}/{blob.FileName}");
 
             if (await client.ExistsAsync())
             {
                 response.Status = $"File {blob.FileName} Uploaded Successfully";
                 response.Error = false;
                 response.Blob.Uri = client.Uri.ToString();
-                response.Blob.Name = client.Name;
+                response.Blob.Name = blob.FileName;
                 response.Blob.ContentType = blob.ContentType;
                 response.Blob.Size = blob.Length;
             }
@@ -101,8 +101,8 @@ namespace EventHubSolution.BackendServer.Services
 
                 response.Status = $"File {blob.FileName} Uploaded Successfully";
                 response.Error = false;
-                response.Blob.Uri = client.Uri.AbsoluteUri;
-                response.Blob.Name = client.Name;
+                response.Blob.Uri = client.Uri.ToString();
+                response.Blob.Name = blob.FileName;
                 response.Blob.ContentType = blob.ContentType;
                 response.Blob.Size = blob.Length;
             }

@@ -41,7 +41,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public DateTime EndTime { get; set; }
 
         [Range(0.0, 1.0)]
-        public double Promotion { get; set; } = 0;
+        public double? Promotion { get; set; } = 0;
 
         [Range(0, Double.PositiveInfinity)]
         public int? NumberOfFavourites { get; set; } = 0;
@@ -54,6 +54,12 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public EventStatus Status { get; set; }
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public EventCycleType EventCycleType { get; set; }
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public EventPaymentType EventPaymentType { get; set; }
 
         public bool IsPrivate { get; set; } = false;
 

@@ -1,25 +1,31 @@
-﻿using EventHubSolution.ViewModels.WebSockets;
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 
 namespace EventHubSolution.BackendServer.Hubs
 {
     public class ChatHub : Hub
     {
-        public async Task JoinChat(UserConnection conn)
-        {
-            await Clients.All.SendAsync("ReceiveMessage", conn.UserName, $"{conn.UserName} has joined {conn.ChatRoom}");
-        }
+        //private readonly ApplicationDbContext _db;
 
-        public async Task JoinSpecificChatRoom(UserConnection conn)
-        {
-            await Groups.AddToGroupAsync(Context.ConnectionId, conn.ChatRoom);
+        //public ChatHub(ApplicationDbContext db)
+        //{
+        //    _db = db;
+        //}
 
-            //_shared.connections[Context.ConnectionId] = conn;
+        //public async Task JoinChat(UserConnection conn)
+        //{
+        //    await Clients.All.SendAsync("ReceiveMessage", conn.UserName, $"{conn.UserName} has joined {conn.ChatRoom}");
+        //}
 
-            await Clients.Group(conn.ChatRoom).SendAsync("ReceiveMessage", conn.UserName, $"{conn.UserName} has joined {conn.ChatRoom}");
-        }
+        //public async Task JoinSpecificChatRoom(UserConnection conn)
+        //{
+        //    await Groups.AddToGroupAsync(Context.ConnectionId, conn.ChatRoom);
 
-        //public async Task SendMessage(PageOrder msg)
+        //    _db.connections[Context.ConnectionId] = conn;
+
+        //    await Clients.Group(conn.ChatRoom).SendAsync("ReceiveMessage", conn.UserName, $"{conn.UserName} has joined {conn.ChatRoom}");
+        //}
+
+        //public async Task SendMessage(string msg)
         //{
         //    if (_shared.connection.TryGetValue(Context.ConnectionId, out UserConnection conn))
         //    {

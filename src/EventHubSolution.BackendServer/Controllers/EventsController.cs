@@ -35,7 +35,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
         #region Events
         [HttpPost]
-        //[ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.CREATE)]
+        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.CREATE)]
         [ApiValidationFilter]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> PostEvent([FromForm] EventCreateRequest request)
@@ -48,33 +48,47 @@ namespace EventHubSolution.BackendServer.Controllers
                 Description = request.Description,
                 StartTime = request.StartTime,
                 EndTime = request.EndTime,
-                Promotion = request.Promotion,
+                Promotion = request.Promotion ?? 0.0,
+                IsPrivate = request.IsPrivate,
+                EventCycleType = request.EventCycleType,
+                EventPaymentType = request.EventPaymentType,
             };
+
+            var user = await _userManager.FindByIdAsync(request.CreatorId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {request.CreatorId} is not found"));
 
             //TODO: Upload cover image file
             FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, FileContainer.EVENTS);
             eventData.CoverImageId = coverImageFileStorage.Id;
 
             //TODO: Create email content
-            var emailContent = new EmailContent()
+            if (request.EmailContent != null)
             {
-                Id = Guid.NewGuid().ToString(),
-                Content = request.EmailContent.Content,
-                EventId = eventData.Id
-            };
-            _db.EmailContents.Add(emailContent);
-
-            //TODO: Upload email attachments file
-            foreach (var attachment in request.EmailContent.Attachments)
-            {
-                FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
-                var emailAttachment = new EmailAttachment()
+                var emailContent = new EmailContent()
                 {
-                    AttachmentId = attachmentFileStorage.Id,
-                    EmailContentId = emailContent.Id,
+                    Id = Guid.NewGuid().ToString(),
+                    Content = request.EmailContent.Content,
+                    EventId = eventData.Id
                 };
-                _db.EmailAttachments.Add(emailAttachment);
+                _db.EmailContents.Add(emailContent);
+
+                //TODO: Upload email attachments file
+                if (request.EmailContent.Attachments != null && request.EmailContent.Attachments.Count > 0)
+                {
+                    foreach (var attachment in request.EmailContent.Attachments)
+                    {
+                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
+                        var emailAttachment = new EmailAttachment()
+                        {
+                            AttachmentId = attachmentFileStorage.Id,
+                            EmailContentId = emailContent.Id,
+                        };
+                        _db.EmailAttachments.Add(emailAttachment);
+                    }
+                }
             }
+
 
             //TODO: Create event location
             var location = new Location()
@@ -87,18 +101,21 @@ namespace EventHubSolution.BackendServer.Controllers
             };
             _db.Locations.Add(location);
 
-            //TODO: Create ticket types
-            foreach (var type in request.TicketTypes)
+            if (request.EventPaymentType == EventPaymentType.PAID)
             {
-                var ticketType = new TicketType()
+                //TODO: Create ticket types
+                foreach (var type in request.TicketTypes)
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    EventId = eventData.Id,
-                    Name = type.Name,
-                    Price = type.Price,
-                    Quantity = type.Quantity
-                };
-                _db.TicketTypes.Add(ticketType);
+                    var ticketType = new TicketType()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        EventId = eventData.Id,
+                        Name = type.Name,
+                        Price = type.Price,
+                        Quantity = type.Quantity
+                    };
+                    _db.TicketTypes.Add(ticketType);
+                }
             }
 
             //TODO: Create event categories
@@ -118,7 +135,6 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                var user = await _userManager.FindByIdAsync(request.CreatorId);
                 user.NumberOfCreatedEvents += 1;
                 await _userManager.UpdateAsync(user);
                 await _db.SaveChangesAsync();
@@ -199,14 +215,16 @@ namespace EventHubSolution.BackendServer.Controllers
                                           CreatorName = _joinedCreatorEvent?.FullName,
                                           CreatorAvatar = _joinedCreatorEvent?.Avatar,
                                           Description = _event.Description,
-                                          CoverImage = _joinedCoverImageEvent.FilePath,
+                                          CoverImage = _joinedCoverImageEvent?.FilePath,
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
-                                          Promotion = _event.Promotion,
+                                          Promotion = _event.Promotion ?? 0.0,
                                           IsPrivate = _event.IsPrivate,
-                                          IsTrash = (bool)_event.IsTrash,
+                                          IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
+                                          EventCycleType = _event.EventCycleType,
+                                          EventPaymentType = _event.EventPaymentType,
                                           Status = _event.Status,
-                                          LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}" : "",
+                                          LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent?.Street}, {_joinedLocationEvent?.District}, {_joinedLocationEvent?.City}" : "",
                                           CreatedAt = _event.CreatedAt,
                                           UpdatedAt = _event.UpdatedAt
                                       }).ToList();
@@ -369,7 +387,9 @@ namespace EventHubSolution.BackendServer.Controllers
                     Description = eventData.Description,
                     StartTime = eventData.StartTime,
                     EndTime = eventData.EndTime,
-                    Promotion = eventData.Promotion,
+                    Promotion = eventData.Promotion ?? 0.0,
+                    EventCycleType = eventData.EventCycleType,
+                    EventPaymentType = eventData.EventPaymentType,
                     NumberOfFavourites = eventData.NumberOfFavourites,
                     NumberOfShares = eventData.NumberOfShares,
                     NumberOfSoldTickets = eventData.NumberOfSoldTickets,
@@ -391,7 +411,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventDataVm.TicketTypes = ticketTypes;
 
                 //TODO: Get event's categories
-                var catogories = _db.Categories
+                var catogories = _db.Categories.ToList()
                     .Join(fileStorages, _category => _category.IconImageId, _fileStorage => _fileStorage.Id, (_category, _fileStorage) => new CategoryVm
                     {
                         Id = _category.Id,
@@ -412,7 +432,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventDataVm.Categories = catogories;
 
                 //TODO: Get event's email content
-                var emailContentVm = _db.EmailAttachments
+                var emailContentVm = _db.EmailAttachments.ToList()
                     .Join(_db.EmailContents, _attachment => _attachment.EmailContentId, _emailContent => _emailContent.Id, (_attachment, _emailContent) => new
                     {
                         Id = _emailContent.Id,

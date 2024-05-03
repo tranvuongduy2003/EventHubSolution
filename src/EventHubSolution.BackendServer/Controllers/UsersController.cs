@@ -227,7 +227,8 @@ namespace EventHubSolution.BackendServer.Controllers
         [HttpPut("{id}")]
         [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.UPDATE)]
         [ApiValidationFilter]
-        public async Task<IActionResult> PutUser(string id, [FromBody] UserUpdateRequest request)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> PutUser(string id, [FromForm] UserUpdateRequest request)
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null)
@@ -513,10 +514,12 @@ namespace EventHubSolution.BackendServer.Controllers
                                       CoverImage = _joinedCoverImageEvent.FilePath,
                                       StartTime = _event.StartTime,
                                       EndTime = _event.EndTime,
-                                      Promotion = _event.Promotion,
+                                      Promotion = _event.Promotion ?? 0.0,
+                                      EventCycleType = _event.EventCycleType,
+                                      EventPaymentType = _event.EventPaymentType,
                                       Status = _event.Status,
                                       IsPrivate = _event.IsPrivate,
-                                      IsTrash = (bool)_event.IsTrash,
+                                      IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
                                       LocationString = _joinedLocationEvent != null
                                           ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}"
                                           : "",
@@ -732,10 +735,12 @@ namespace EventHubSolution.BackendServer.Controllers
                                           CoverImage = _joinedCoverImageEvent.FilePath,
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
-                                          Promotion = _event.Promotion,
+                                          Promotion = _event.Promotion ?? 0.0,
                                           Status = _event.Status,
                                           IsPrivate = _event.IsPrivate,
                                           IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
+                                          EventPaymentType = _event.EventPaymentType,
+                                          EventCycleType = _event.EventCycleType,
                                           LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}" : "",
                                           CreatedAt = _event.CreatedAt,
                                           UpdatedAt = _event.UpdatedAt

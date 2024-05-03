@@ -25,6 +25,10 @@ namespace EventHubSolution.ViewModels.Contents
 
         public DateTime EndTime { get; set; }
 
+        public EventCycleType EventCycleType { get; set; }
+
+        public EventPaymentType EventPaymentType { get; set; }
+
         public bool IsPrivate { get; set; }
 
         public bool IsTrash { get; set; }

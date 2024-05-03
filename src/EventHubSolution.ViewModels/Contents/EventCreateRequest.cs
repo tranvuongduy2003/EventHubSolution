@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using EventHubSolution.ViewModels.Constants;
+using Microsoft.AspNetCore.Http;
+using System.Text.Json.Serialization;
 
 namespace EventHubSolution.ViewModels.Contents
 {
@@ -20,10 +22,18 @@ namespace EventHubSolution.ViewModels.Contents
 
         public List<string> CategoryIds { get; set; }
 
-        public double Promotion { get; set; } = 0;
+        public double? Promotion { get; set; } = 0;
 
-        public List<TicketTypeCreateRequest> TicketTypes { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public EventCycleType EventCycleType { get; set; }
 
-        public EmailContentCreateRequest EmailContent { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public EventPaymentType EventPaymentType { get; set; }
+
+        public bool IsPrivate { get; set; }
+
+        public List<TicketTypeCreateRequest>? TicketTypes { get; set; }
+
+        public EmailContentCreateRequest? EmailContent { get; set; }
     }
 }

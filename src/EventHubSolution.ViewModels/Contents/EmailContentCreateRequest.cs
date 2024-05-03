@@ -6,6 +6,6 @@ namespace EventHubSolution.ViewModels.Contents
     {
         public string Content { get; set; }
 
-        public List<IFormFile> Attachments { get; set; }
+        public List<IFormFile>? Attachments { get; set; }
     }
 }

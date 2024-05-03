@@ -29,7 +29,7 @@ namespace EventHubSolution.BackendServer.Services
         {
             var imageFile = await _fileService.UploadAsync(image, container);
 
-            var fileStorage = await _db.FileStorages.FindAsync(imageFile.Blob.Name);
+            var fileStorage = await _db.FileStorages.FirstOrDefaultAsync(f => f.FileName.Equals(imageFile.Blob.Name));
 
             var fileStorageVm = new FileStorageVm();
 
@@ -52,6 +52,11 @@ namespace EventHubSolution.BackendServer.Services
 
                 await _db.SaveChangesAsync();
 
+                fileStorageVm = _mapper.Map<FileStorageVm>(fileStorage);
+                fileStorageVm.FilePath = imageFile.Blob.Uri;
+            }
+            else
+            {
                 fileStorageVm = _mapper.Map<FileStorageVm>(fileStorage);
                 fileStorageVm.FilePath = imageFile.Blob.Uri;
             }
@@ -114,10 +119,12 @@ namespace EventHubSolution.BackendServer.Services
             if (cacheFileStorage != null)
                 fileStorage = cacheFileStorage;
             else
+            {
                 fileStorage = await _db.FileStorages.FindAsync(id);
-            // Set expiry time
-            var expiryTime = DateTimeOffset.Now.AddMinutes(45);
-            _cacheService.SetData<FileStorage>($"{CacheKey.FILE}{id}", fileStorage, expiryTime);
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<FileStorage>($"{CacheKey.FILE}{id}", fileStorage, expiryTime);
+            }
 
             if (fileStorage == null)
                 return null;

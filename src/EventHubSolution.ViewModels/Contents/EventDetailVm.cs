@@ -28,6 +28,10 @@ namespace EventHubSolution.ViewModels.Contents
 
         public double Promotion { get; set; } = 0;
 
+        public EventCycleType EventCycleType { get; set; }
+
+        public EventPaymentType EventPaymentType { get; set; }
+
         public List<TicketTypeVm> TicketTypes { get; set; }
 
         public EmailContentVm EmailContent { get; set; }
