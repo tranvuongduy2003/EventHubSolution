@@ -350,13 +350,10 @@ namespace EventHubSolution.BackendServer.Data
                     .RuleFor(e => e.CreatorId, f => f.PickRandom<User>(users).Id)
                     .RuleFor(e => e.Name, f => f.Commerce.ProductName())
                     .RuleFor(e => e.Description, f => f.Commerce.ProductDescription())
-                    .RuleFor(e => e.Promotion, f => f.Random.Double(0.0, 1.0));
-
-                var fakerLocation = new Faker<Location>()
-                    .RuleFor(l => l.Id, _ => Guid.NewGuid().ToString())
-                    .RuleFor(l => l.City, f => f.Address.City())
-                    .RuleFor(l => l.District, f => f.Address.State())
-                    .RuleFor(l => l.Street, f => f.Address.StreetAddress());
+                    .RuleFor(e => e.Promotion, f => f.Random.Double(0.0, 1.0))
+                    .RuleFor(e => e.Location, f => f.Address.FullAddress())
+                    .RuleFor(e => e.EventPaymentType, f => f.Random.Enum<EventPaymentType>())
+                    .RuleFor(e => e.EventCycleType, f => f.Random.Enum<EventCycleType>());
 
                 var fakerTicketType = new Faker<TicketType>()
                     .RuleFor(t => t.Id, _ => Guid.NewGuid().ToString())
@@ -410,12 +407,6 @@ namespace EventHubSolution.BackendServer.Data
                     #endregion
 
                     _context.Events.Add(eventItem);
-
-                    #region Location
-                    fakerLocation.RuleFor(l => l.EventId, _ => eventItem.Id);
-                    var location = fakerLocation.Generate();
-                    _context.Locations.Add(location);
-                    #endregion
 
                     #region EmailContent
                     fakerEmailContent.RuleFor(ec => ec.EventId, _ => eventItem.Id);

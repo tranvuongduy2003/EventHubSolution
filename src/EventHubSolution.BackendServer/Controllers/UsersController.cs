@@ -486,10 +486,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                       on _event.CoverImageId equals _fileStorage.Id
                                       into joinedCoverImageEvents
                                   from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
-                                  join _location in _db.Locations.ToList()
-                                      on _event.Id equals _location.EventId
-                                      into joinedLocationEvents
-                                  from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
                                   join _user in (from u in _userManager.Users.ToList()
                                                  join f in fileStorages
                                                      on u.AvatarId equals f.Id
@@ -511,7 +507,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                       CreatorName = _joinedCreatorEvent?.FullName,
                                       CreatorAvatar = _joinedCreatorEvent?.Avatar,
                                       Description = _event.Description,
-                                      CoverImage = _joinedCoverImageEvent.FilePath,
+                                      CoverImage = _joinedCoverImageEvent?.FilePath ?? "",
                                       StartTime = _event.StartTime,
                                       EndTime = _event.EndTime,
                                       Promotion = _event.Promotion ?? 0.0,
@@ -520,9 +516,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                       Status = _event.Status,
                                       IsPrivate = _event.IsPrivate,
                                       IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
-                                      LocationString = _joinedLocationEvent != null
-                                          ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}"
-                                          : "",
+                                      Location = _event.Location,
                                       CreatedAt = _event.CreatedAt,
                                       UpdatedAt = _event.UpdatedAt
                                   }).ToList();
@@ -613,9 +607,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (!filter.location.IsNullOrEmpty())
             {
-                eventVms = eventVms.Where(e =>
-                        e.LocationString.Split(", ").Any(str => filter.location.ToLower().Contains(str.ToLower())))
-                    .ToList();
+                eventVms = eventVms.Where(e => e.Location.ToLower().Contains(filter.location.ToLower())).ToList();
             }
 
             if (!filter.categoryIds.IsNullOrEmpty())
@@ -707,10 +699,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                       on _event.CoverImageId equals _fileStorage.Id
                                       into joinedCoverImageEvents
                                       from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
-                                      join _location in _db.Locations.ToList()
-                                      on _event.Id equals _location.EventId
-                                      into joinedLocationEvents
-                                      from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
                                       join _user in (from u in _userManager.Users.ToList()
                                                      join f in fileStorages
                                                          on u.AvatarId equals f.Id
@@ -732,7 +720,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                           CreatorName = _joinedCreatorEvent?.FullName,
                                           CreatorAvatar = _joinedCreatorEvent?.Avatar,
                                           Description = _event.Description,
-                                          CoverImage = _joinedCoverImageEvent.FilePath,
+                                          CoverImage = _joinedCoverImageEvent?.FilePath ?? "",
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
                                           Promotion = _event.Promotion ?? 0.0,
@@ -741,7 +729,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                           IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
                                           EventPaymentType = _event.EventPaymentType,
                                           EventCycleType = _event.EventCycleType,
-                                          LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent.Street}, {_joinedLocationEvent.District}, {_joinedLocationEvent.City}" : "",
+                                          Location = _event.Location,
                                           CreatedAt = _event.CreatedAt,
                                           UpdatedAt = _event.UpdatedAt
                                       }).ToList();
@@ -838,9 +826,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (!filter.location.IsNullOrEmpty())
             {
-                eventVms = eventVms.Where(e =>
-                        e.LocationString.Split(", ").Any(str => filter.location.ToLower().Contains(str.ToLower())))
-                    .ToList();
+                eventVms = eventVms.Where(e => e.Location.ToLower().Contains(filter.location.ToLower())).ToList();
             }
 
             if (!filter.categoryIds.IsNullOrEmpty())

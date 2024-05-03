@@ -18,8 +18,7 @@ namespace EventHubSolution.ViewModels.Contents
             RuleFor(x => x.Description).NotEmpty().WithMessage("Description is required")
                 .MaximumLength(1000).WithMessage("Description cannot over limit 1000 characters");
 
-            RuleFor(x => x.Location).NotNull().WithMessage("Location is required")
-                .SetValidator(new LocationCreateRequestValidator());
+            RuleFor(x => x.Location).NotEmpty().WithMessage("Location is required");
 
             RuleFor(x => x.StartTime).NotEmpty().WithMessage("Start time is required")
                 .LessThan(x => x.EndTime)

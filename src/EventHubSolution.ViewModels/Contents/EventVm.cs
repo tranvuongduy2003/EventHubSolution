@@ -17,7 +17,7 @@ namespace EventHubSolution.ViewModels.Contents
 
         public string Description { get; set; }
 
-        public string LocationString { get; set; }
+        public string Location { get; set; }
 
         public PriceRangeVm PriceRange { get; set; }
 

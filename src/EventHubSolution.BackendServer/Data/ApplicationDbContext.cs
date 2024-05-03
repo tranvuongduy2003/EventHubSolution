@@ -48,7 +48,6 @@ namespace EventHubSolution.BackendServer.Data
             builder.Entity<Review>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<EmailLogger>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<FileStorage>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
-            builder.Entity<Location>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<EventSubImage>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<TicketType>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<EmailContent>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
@@ -71,7 +70,6 @@ namespace EventHubSolution.BackendServer.Data
         public DbSet<Label> Labels { set; get; }
         public DbSet<LabelInEvent> LabelInEvents { set; get; }
         public DbSet<LabelInUser> LabelInUsers { set; get; }
-        public DbSet<Location> Locations { set; get; }
         public DbSet<Payment> Payments { set; get; }
         public DbSet<Permission> Permissions { set; get; }
         public DbSet<Review> Reviews { set; get; }

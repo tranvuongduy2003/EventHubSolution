@@ -14,13 +14,13 @@ namespace EventHubSolution.ViewModels.Contents
 
         public string Description { get; set; }
 
-        public LocationCreateRequest Location { get; set; }
+        public string Location { get; set; }
 
         public DateTime StartTime { get; set; }
 
         public DateTime EndTime { get; set; }
 
-        public List<string> CategoryIds { get; set; }
+        public List<string> CategoryIds { get; set; } = new List<string>();
 
         public double? Promotion { get; set; } = 0;
 
@@ -32,7 +32,7 @@ namespace EventHubSolution.ViewModels.Contents
 
         public bool IsPrivate { get; set; }
 
-        public List<TicketTypeCreateRequest>? TicketTypes { get; set; }
+        public List<TicketTypeCreateRequest>? TicketTypes { get; set; } = new List<TicketTypeCreateRequest>();
 
         public EmailContentCreateRequest? EmailContent { get; set; }
     }

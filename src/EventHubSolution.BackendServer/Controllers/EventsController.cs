@@ -52,6 +52,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 IsPrivate = request.IsPrivate,
                 EventCycleType = request.EventCycleType,
                 EventPaymentType = request.EventPaymentType,
+                Location = request.Location
             };
 
             var user = await _userManager.FindByIdAsync(request.CreatorId);
@@ -88,18 +89,6 @@ namespace EventHubSolution.BackendServer.Controllers
                     }
                 }
             }
-
-
-            //TODO: Create event location
-            var location = new Location()
-            {
-                Id = Guid.NewGuid().ToString(),
-                EventId = eventData.Id,
-                Street = request.Location.Street,
-                District = request.Location.District,
-                City = request.Location.City,
-            };
-            _db.Locations.Add(location);
 
             if (request.EventPaymentType == EventPaymentType.PAID)
             {
@@ -190,10 +179,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                       on _event.CoverImageId equals _fileStorage.Id
                                       into joinedCoverImageEvents
                                       from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
-                                      join _location in _db.Locations.ToList()
-                                      on _event.Id equals _location.EventId
-                                      into joinedLocationEvents
-                                      from _joinedLocationEvent in joinedLocationEvents.DefaultIfEmpty()
                                       join _user in (from u in _userManager.Users.ToList()
                                                      join f in fileStorages
                                                          on u.AvatarId equals f.Id
@@ -215,7 +200,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                           CreatorName = _joinedCreatorEvent?.FullName,
                                           CreatorAvatar = _joinedCreatorEvent?.Avatar,
                                           Description = _event.Description,
-                                          CoverImage = _joinedCoverImageEvent?.FilePath,
+                                          CoverImage = _joinedCoverImageEvent?.FilePath ?? "",
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
                                           Promotion = _event.Promotion ?? 0.0,
@@ -224,7 +209,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                           EventCycleType = _event.EventCycleType,
                                           EventPaymentType = _event.EventPaymentType,
                                           Status = _event.Status,
-                                          LocationString = _joinedLocationEvent != null ? $"{_joinedLocationEvent?.Street}, {_joinedLocationEvent?.District}, {_joinedLocationEvent?.City}" : "",
+                                          Location = _event.Location,
                                           CreatedAt = _event.CreatedAt,
                                           UpdatedAt = _event.UpdatedAt
                                       }).ToList();
@@ -320,7 +305,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (!filter.location.IsNullOrEmpty())
             {
-                eventVms = eventVms.Where(e => e.LocationString.Split(", ").Any(str => filter.location.ToLower().Contains(str.ToLower()))).ToList();
+                eventVms = eventVms.Where(e => e.Location.ToLower().Contains(filter.location.ToLower())).ToList();
             }
 
             if (!filter.categoryIds.IsNullOrEmpty())
@@ -393,6 +378,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     NumberOfFavourites = eventData.NumberOfFavourites,
                     NumberOfShares = eventData.NumberOfShares,
                     NumberOfSoldTickets = eventData.NumberOfSoldTickets,
+                    Location = eventData.Location,
                     Status = eventData.Status,
                     CreatedAt = eventData.CreatedAt,
                     UpdatedAt = eventData.UpdatedAt,
@@ -465,17 +451,6 @@ namespace EventHubSolution.BackendServer.Controllers
                     .FirstOrDefault(a => a.EventId == eventData.Id);
                 eventDataVm.EmailContent = emailContentVm;
 
-                //TODO: Get event's location
-                var location = _db.Locations.FirstOrDefault(l => l.EventId == eventData.Id);
-                var locationVm = new LocationVm()
-                {
-                    Id = location.Id,
-                    City = location.City,
-                    District = location.District,
-                    Street = location.Street,
-                };
-                eventDataVm.Location = locationVm;
-
                 //TODO: Get event's cover image
                 var coverImage = await _fileService.GetFileByFileIdAsync(eventData.CoverImageId);
                 eventDataVm.CoverImage = coverImage?.FilePath;
@@ -510,12 +485,20 @@ namespace EventHubSolution.BackendServer.Controllers
             if (eventData == null)
                 return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
+            var user = await _userManager.FindByIdAsync(request.CreatorId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {request.CreatorId} is not found"));
+
             eventData.CreatorId = request.CreatorId;
             eventData.Name = request.Name;
             eventData.Description = request.Description;
             eventData.StartTime = request.StartTime;
             eventData.EndTime = request.EndTime;
-            eventData.Promotion = request.Promotion;
+            eventData.Promotion = request.Promotion ?? 0.0;
+            eventData.Location = request.Location;
+            eventData.IsPrivate = request.IsPrivate;
+            eventData.EventCycleType = request.EventCycleType;
+            eventData.EventPaymentType = request.EventPaymentType;
 
             //TODO: Update cover image
             FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, FileContainer.EVENTS);
@@ -525,30 +508,29 @@ namespace EventHubSolution.BackendServer.Controllers
             var emailContent = _db.EmailContents.FirstOrDefault(ec => ec.EventId == eventData.Id);
             emailContent.Content = request.EmailContent.Content;
             _db.EmailContents.Update(emailContent);
-            //TODO: Update email attachments file
-            foreach (var attachment in request.EmailContent.Attachments)
+            if (request.EmailContent.Attachments != null && request.EmailContent.Attachments.Count > 0)
             {
-                FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
-                var emailAttachment = await _db.EmailAttachments.FirstOrDefaultAsync(e => e.EmailContentId == emailContent.Id);
-                emailAttachment.AttachmentId = attachmentFileStorage.Id;
-                _db.EmailAttachments.Update(emailAttachment);
+                //TODO: Update email attachments file
+                foreach (var attachment in request.EmailContent.Attachments)
+                {
+                    FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
+                    var emailAttachment = await _db.EmailAttachments.FirstOrDefaultAsync(e => e.EmailContentId == emailContent.Id);
+                    emailAttachment.AttachmentId = attachmentFileStorage.Id;
+                    _db.EmailAttachments.Update(emailAttachment);
+                }
             }
 
-            //TODO: Udpate event location
-            var location = _db.Locations.FirstOrDefault(l => l.EventId == eventData.Id);
-            location.Street = request.Location.Street;
-            location.District = request.Location.District;
-            location.City = request.Location.City;
-            _db.Locations.Update(location);
-
-            //TODO: Update ticket types
-            foreach (var type in request.TicketTypes)
+            if (request.EventPaymentType == EventPaymentType.PAID)
             {
-                var ticketType = await _db.TicketTypes.FirstOrDefaultAsync(t => t.Name == type.Name);
-                ticketType.Name = type.Name;
-                ticketType.Price = type.Price;
-                ticketType.Quantity = type.Quantity;
-                _db.TicketTypes.Update(ticketType);
+                //TODO: Update ticket types
+                foreach (var type in request.TicketTypes)
+                {
+                    var ticketType = await _db.TicketTypes.FirstOrDefaultAsync(t => t.Name == type.Name);
+                    ticketType.Name = type.Name;
+                    ticketType.Price = type.Price;
+                    ticketType.Quantity = type.Quantity;
+                    _db.TicketTypes.Update(ticketType);
+                }
             }
 
             //TODO: Update event categories
@@ -588,10 +570,6 @@ namespace EventHubSolution.BackendServer.Controllers
             var emailContent = _db.EmailContents.FirstOrDefault(ec => ec.EventId == eventData.Id);
             _db.EmailContents.Remove(emailContent);
 
-            //TODO: Delete event location
-            var location = _db.Locations.FirstOrDefault(l => l.EventId == eventData.Id);
-            _db.Locations.Remove(location);
-
             //TODO: Delete ticket types
             var ticketTypes = _db.TicketTypes.Where(t => t.EventId == eventData.Id);
             _db.TicketTypes.RemoveRange(ticketTypes);
@@ -601,6 +579,31 @@ namespace EventHubSolution.BackendServer.Controllers
             _db.EventCategories.RemoveRange(eventCategories);
 
             _db.Events.Remove(eventData);
+
+            var user = await _userManager.FindByIdAsync(eventData.CreatorId);
+            user.NumberOfCreatedEvents -= 1;
+
+            var result = await _db.SaveChangesAsync();
+
+            _cacheService.RemoveData($"{CacheKey.EVENT}{id}");
+
+            if (result > 0)
+            {
+                return Ok(new ApiOkResponse());
+            }
+            return BadRequest(new ApiBadRequestResponse(""));
+        }
+
+        [HttpDelete("{id}/move-to-trash")]
+        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.DELETE)]
+        public async Task<IActionResult> MoveEventToTrash(string id)
+        {
+            var eventData = await _db.Events.FindAsync(id);
+            if (eventData == null)
+                return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
+
+            eventData.IsTrash = true;
+            _db.Events.Update(eventData);
 
             var user = await _userManager.FindByIdAsync(eventData.CreatorId);
             user.NumberOfCreatedEvents -= 1;

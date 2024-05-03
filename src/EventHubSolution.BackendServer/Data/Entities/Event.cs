@@ -35,6 +35,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string Description { get; set; }
 
         [Required]
+        [MaxLength(1000)]
+        public string Location { get; set; }
+
+        [Required]
         public DateTime StartTime { get; set; }
 
         [Required]
@@ -78,8 +82,6 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual FileStorage CoverImage { get; set; } = null!;
 
-        [NotMapped]
-        public virtual Location? Location { get; set; }
 
         [NotMapped]
         public virtual EmailContent? EmailContent { get; set; }
