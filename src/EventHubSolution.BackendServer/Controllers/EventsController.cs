@@ -540,36 +540,109 @@ namespace EventHubSolution.BackendServer.Controllers
             eventData.EventPaymentType = request.EventPaymentType;
 
             //TODO: Update cover image
+            await _fileService.DeleteFileByIdAsync(eventData.CoverImageId);
             FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, FileContainer.EVENTS);
             eventData.CoverImageId = coverImageFileStorage.Id;
 
-            //TODO: Update email content
-            var emailContent = _db.EmailContents.FirstOrDefault(ec => ec.EventId == eventData.Id);
-            emailContent.Content = request.EmailContent.Content;
-            _db.EmailContents.Update(emailContent);
-            if (request.EmailContent.Attachments != null && request.EmailContent.Attachments.Count > 0)
+            //TODO: Update event sub images
+            var eventSubImages = _db.EventSubImages.Where(t => t.EventId == eventData.Id).ToList();
+            foreach (var image in eventSubImages)
+                await _fileService.DeleteFileByIdAsync(image.Id);
+            _db.EventSubImages.RemoveRange(eventSubImages);
+            if (request.EventSubImages != null && request.EventSubImages.Any())
             {
-                //TODO: Update email attachments file
-                foreach (var attachment in request.EmailContent.Attachments)
+                foreach (var file in request.EventSubImages)
                 {
-                    FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
-                    var emailAttachment = await _db.EmailAttachments.FirstOrDefaultAsync(e => e.EmailContentId == emailContent.Id);
-                    emailAttachment.AttachmentId = attachmentFileStorage.Id;
-                    _db.EmailAttachments.Update(emailAttachment);
+                    FileStorageVm subImageVm = await _fileService.SaveFileToFileStorageAsync(file, FileContainer.EVENTS);
+                    var eventSubImage = new EventSubImage()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        EventId = eventData.Id,
+                        ImageId = subImageVm.Id
+                    };
+                    await _db.EventSubImages.AddAsync(eventSubImage);
                 }
             }
 
+            //TODO: Update email content
+            var emailContent = await _db.EmailContents.FirstOrDefaultAsync(ec => ec.EventId == eventData.Id);
+            if (request.EmailContent != null && emailContent != null)
+            {
+                emailContent.Content = request.EmailContent.Content;
+                _db.EmailContents.Update(emailContent);
+
+                var emailAttachments = _db.EmailAttachments.Where(e => e.EmailContentId == emailContent.Id).ToList();
+                foreach (var attachment in emailAttachments)
+                    await _fileService.DeleteFileByIdAsync(attachment.AttachmentId);
+                _db.EmailAttachments.RemoveRange(emailAttachments);
+                if (request.EmailContent.Attachments != null && request.EmailContent.Attachments.Count > 0)
+                {
+                    //TODO: Update email attachments file
+                    foreach (var attachment in request.EmailContent.Attachments)
+                    {
+                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
+                        var emailAttachment = new EmailAttachment()
+                        {
+                            AttachmentId = attachmentFileStorage.Id,
+                            EmailContentId = emailContent.Id,
+                        };
+                        await _db.EmailAttachments.AddAsync(emailAttachment);
+                    }
+                }
+            }
+            else if (request.EmailContent == null && emailContent != null)
+            {
+                var emailAttachments = _db.EmailAttachments.Where(e => e.EmailContentId == emailContent.Id).ToList();
+                foreach (var attachment in emailAttachments)
+                    await _fileService.DeleteFileByIdAsync(attachment.AttachmentId);
+                _db.EmailAttachments.RemoveRange(emailAttachments);
+
+                _db.EmailContents.Remove(emailContent);
+            }
+            else if (request.EmailContent != null && emailContent == null)
+            {
+                var newEmailContent = new EmailContent()
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Content = request.EmailContent.Content,
+                    EventId = eventData.Id
+                };
+                await _db.EmailContents.AddAsync(newEmailContent);
+
+                //TODO: Upload email attachments file
+                if (request.EmailContent.Attachments != null && request.EmailContent.Attachments.Count > 0)
+                {
+                    foreach (var attachment in request.EmailContent.Attachments)
+                    {
+                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
+                        var emailAttachment = new EmailAttachment()
+                        {
+                            AttachmentId = attachmentFileStorage.Id,
+                            EmailContentId = newEmailContent.Id,
+                        };
+                        await _db.EmailAttachments.AddAsync(emailAttachment);
+                    }
+                }
+            }
+
+            //TODO: Update ticket types
+            var eventTicketTypes = _db.TicketTypes.Where(t => t.EventId == eventData.Id);
+            _db.TicketTypes.RemoveRange(eventTicketTypes);
             if (request.EventPaymentType == EventPaymentType.PAID)
             {
                 //TODO: Update ticket types
                 foreach (var type in request.TicketTypes)
                 {
                     var deserializedType = JsonConvert.DeserializeObject<TicketTypeCreateRequest>(type);
-                    var ticketType = await _db.TicketTypes.FirstOrDefaultAsync(t => t.Name == deserializedType.Name);
-                    ticketType.Name = deserializedType.Name;
-                    ticketType.Price = deserializedType.Price;
-                    ticketType.Quantity = deserializedType.Quantity;
-                    _db.TicketTypes.Update(ticketType);
+                    var ticketType = new TicketType()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        EventId = eventData.Id,
+                        Name = deserializedType.Name,
+                        Price = deserializedType.Price,
+                        Quantity = deserializedType.Quantity
+                    };
+                    await _db.TicketTypes.AddAsync(ticketType);
                 }
             }
 
@@ -583,7 +656,24 @@ namespace EventHubSolution.BackendServer.Controllers
                     CategoryId = categoryId,
                     EventId = eventData.Id,
                 };
-                _db.EventCategories.Add(eventCategory);
+                await _db.EventCategories.AddAsync(eventCategory);
+            }
+
+            //TODO: Update event reasons
+            var reasons = _db.Reasons.Where(e => e.EventId == eventData.Id);
+            _db.Reasons.RemoveRange(reasons);
+            if (request.Reasons != null && request.Reasons.Any())
+            {
+                foreach (var reason in request.Reasons)
+                {
+                    var reasonEntity = new Reason()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        EventId = eventData.Id,
+                        Name = reason,
+                    };
+                    await _db.Reasons.AddAsync(reasonEntity);
+                }
             }
 
             _db.Events.Update(eventData);
@@ -607,10 +697,25 @@ namespace EventHubSolution.BackendServer.Controllers
             if (eventData == null)
                 return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
+            //TODO: Delete cover image
+            await _fileService.DeleteFileByIdAsync(eventData.CoverImageId);
+
+            //TODO: Update event sub images
+            var eventSubImages = _db.EventSubImages.Where(t => t.EventId == eventData.Id).ToList();
+            foreach (var image in eventSubImages)
+                await _fileService.DeleteFileByIdAsync(image.Id);
+            _db.EventSubImages.RemoveRange(eventSubImages);
+
             //TODO: Delete email content
-            var emailContent = _db.EmailContents.FirstOrDefault(ec => ec.EventId == eventData.Id);
+            var emailContent = await _db.EmailContents.FirstOrDefaultAsync(ec => ec.EventId == eventData.Id);
             if (emailContent != null)
+            {
+                var emailAttachments = _db.EmailAttachments.Where(e => e.EmailContentId == emailContent.Id).ToList();
+                foreach (var attachment in emailAttachments)
+                    await _fileService.DeleteFileByIdAsync(attachment.AttachmentId);
+                _db.EmailAttachments.RemoveRange(emailAttachments);
                 _db.EmailContents.Remove(emailContent);
+            }
 
             //TODO: Delete ticket types
             var ticketTypes = _db.TicketTypes.Where(t => t.EventId == eventData.Id);
@@ -622,6 +727,11 @@ namespace EventHubSolution.BackendServer.Controllers
             if (eventCategories != null && eventCategories.Count() > 0)
                 _db.EventCategories.RemoveRange(eventCategories);
 
+            //TODO: Delete reasons
+            var reasons = _db.Reasons.Where(e => e.EventId == eventData.Id);
+            if (reasons != null && reasons.Count() > 0)
+                _db.Reasons.RemoveRange(reasons);
+
             _db.Events.Remove(eventData);
 
             var user = await _userManager.FindByIdAsync(eventData.CreatorId);
@@ -630,6 +740,7 @@ namespace EventHubSolution.BackendServer.Controllers
             var result = await _db.SaveChangesAsync();
 
             _cacheService.RemoveData($"{CacheKey.EVENT}{id}");
+            _cacheService.RemoveData(CacheKey.EVENTS);
 
             if (result > 0)
             {

@@ -135,9 +135,32 @@ namespace EventHubSolution.BackendServer.Services
             return fileStorageVm;
         }
 
-        public async Task<FileStorageVm> DeleteFileFromFileStorageAsync(string fileName)
+        public async Task<FileStorageVm> DeleteFileByFileNameAsync(string fileName)
         {
-            var fileStorage = await _db.FileStorages.FindAsync(fileName);
+            var fileStorage = await _db.FileStorages.FirstOrDefaultAsync(f => f.FileName == fileName);
+            var fileStorageVm = new FileStorageVm();
+
+            if (fileStorage != null)
+            {
+                fileStorageVm = _mapper.Map<FileStorageVm>(fileStorage);
+                fileStorageVm.FilePath = string.IsNullOrEmpty(fileStorageVm.FilePath) ? await _fileService.GetUriByFileNameAsync(fileStorage.FileContainer, fileStorage.FileName) : fileStorageVm.FilePath;
+
+                await _fileService.DeleteAsync(fileStorage.FileContainer, fileStorage.FileName);
+
+                _db.FileStorages.Remove(fileStorage);
+
+                _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.Id}");
+                _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.FileName}");
+
+                await _db.SaveChangesAsync();
+            }
+
+            return fileStorageVm;
+        }
+
+        public async Task<FileStorageVm> DeleteFileByIdAsync(string id)
+        {
+            var fileStorage = await _db.FileStorages.FindAsync(id);
             var fileStorageVm = new FileStorageVm();
 
             if (fileStorage != null)

@@ -12,6 +12,8 @@ namespace EventHubSolution.BackendServer.Services
 
         Task<FileStorageVm> GetFileByFileIdAsync(string id);
 
-        Task<FileStorageVm> DeleteFileFromFileStorageAsync(string fileName);
+        Task<FileStorageVm> DeleteFileByFileNameAsync(string fileName);
+
+        Task<FileStorageVm> DeleteFileByIdAsync(string id);
     }
 }
