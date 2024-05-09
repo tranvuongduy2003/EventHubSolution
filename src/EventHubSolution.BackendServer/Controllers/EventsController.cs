@@ -63,6 +63,22 @@ namespace EventHubSolution.BackendServer.Controllers
             FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, FileContainer.EVENTS);
             eventData.CoverImageId = coverImageFileStorage.Id;
 
+            //TODO: Upload event sub image files
+            if (request.EventSubImages != null && request.EventSubImages.Any())
+            {
+                foreach (var file in request.EventSubImages)
+                {
+                    FileStorageVm subImageVm = await _fileService.SaveFileToFileStorageAsync(file, FileContainer.EVENTS);
+                    var eventSubImage = new EventSubImage()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        EventId = eventData.Id,
+                        ImageId = subImageVm.Id
+                    };
+                    await _db.EventSubImages.AddAsync(eventSubImage);
+                }
+            }
+
             //TODO: Create email content
             if (request.EmailContent != null)
             {
@@ -72,7 +88,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     Content = request.EmailContent.Content,
                     EventId = eventData.Id
                 };
-                _db.EmailContents.Add(emailContent);
+                await _db.EmailContents.AddAsync(emailContent);
 
                 //TODO: Upload email attachments file
                 if (request.EmailContent.Attachments != null && request.EmailContent.Attachments.Count > 0)
@@ -85,42 +101,63 @@ namespace EventHubSolution.BackendServer.Controllers
                             AttachmentId = attachmentFileStorage.Id,
                             EmailContentId = emailContent.Id,
                         };
-                        _db.EmailAttachments.Add(emailAttachment);
+                        await _db.EmailAttachments.AddAsync(emailAttachment);
                     }
                 }
             }
 
-            if (request.EventPaymentType == EventPaymentType.PAID)
+            //TODO: Create ticket types
+            if (request.EventPaymentType == EventPaymentType.PAID && request.TicketTypes != null && request.TicketTypes.Any())
             {
-                //TODO: Create ticket types
                 foreach (var type in request.TicketTypes)
                 {
+                    var deserializedType = JsonConvert.DeserializeObject<TicketTypeCreateRequest>(type);
                     var ticketType = new TicketType()
                     {
                         Id = Guid.NewGuid().ToString(),
                         EventId = eventData.Id,
-                        Name = type.Name,
-                        Price = type.Price,
-                        Quantity = type.Quantity
+                        Name = deserializedType.Name,
+                        Price = deserializedType.Price,
+                        Quantity = deserializedType.Quantity
                     };
-                    _db.TicketTypes.Add(ticketType);
+                    await _db.TicketTypes.AddAsync(ticketType);
                 }
             }
 
             //TODO: Create event categories
-            foreach (var categoryId in request.CategoryIds)
+            if (request.CategoryIds != null && request.CategoryIds.Any())
             {
-                var eventCategory = new EventCategory()
+                foreach (var categoryId in request.CategoryIds)
                 {
-                    CategoryId = categoryId,
-                    EventId = eventData.Id,
-                };
-                _db.EventCategories.Add(eventCategory);
+                    var eventCategory = new EventCategory()
+                    {
+                        CategoryId = categoryId,
+                        EventId = eventData.Id,
+                    };
+                    await _db.EventCategories.AddAsync(eventCategory);
+                }
             }
 
-            _db.Events.Add(eventData);
+            //TODO: Create event reasons
+            if (request.Reasons != null && request.Reasons.Any())
+            {
+                foreach (var reason in request.Reasons)
+                {
+                    var reasonEntity = new Reason()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        EventId = eventData.Id,
+                        Name = reason,
+                    };
+                    await _db.Reasons.AddAsync(reasonEntity);
+                }
+            }
+
+            await _db.Events.AddAsync(eventData);
 
             var result = await _db.SaveChangesAsync();
+
+            _cacheService.RemoveData(CacheKey.EVENTS);
 
             if (result > 0)
             {
@@ -200,7 +237,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                           CreatorName = _joinedCreatorEvent?.FullName,
                                           CreatorAvatar = _joinedCreatorEvent?.Avatar,
                                           Description = _event.Description,
-                                          CoverImage = _joinedCoverImageEvent?.FilePath ?? "",
+                                          CoverImage = _joinedCoverImageEvent != null && _joinedCoverImageEvent.FilePath != null ? _joinedCoverImageEvent.FilePath : "",
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
                                           Promotion = _event.Promotion ?? 0.0,
@@ -278,7 +315,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms.Count(e => (bool)e.IsTrash)
             );
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
             }
@@ -308,9 +345,9 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e => e.Location.ToLower().Contains(filter.location.ToLower())).ToList();
             }
 
-            if (!filter.categoryIds.IsNullOrEmpty())
+            if (filter.categoryIds != null && filter.categoryIds.Count > 0 && !filter.categoryIds.Contains(null))
             {
-                eventVms = eventVms.Where(e => e.Categories.Exists(c => filter.categoryIds.Contains(c.Id))).ToList();
+                eventVms = eventVms.Where(e => e.Categories.Where(c => c != null && filter.categoryIds.Contains(c.Id)).Any()).ToList();
             }
 
             if (filter.priceRange != null)
@@ -360,7 +397,7 @@ namespace EventHubSolution.BackendServer.Controllers
             else
             {
                 var eventData = await _db.Events.FindAsync(id);
-                if (eventData == null)
+                if (eventData == null || eventData.IsTrash == true)
                     return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
                 var fileStorages = await _fileService.GetListFileStoragesAsync();
 
@@ -397,23 +434,9 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventDataVm.TicketTypes = ticketTypes;
 
                 //TODO: Get event's categories
-                var catogories = _db.Categories.ToList()
-                    .Join(fileStorages, _category => _category.IconImageId, _fileStorage => _fileStorage.Id, (_category, _fileStorage) => new CategoryVm
-                    {
-                        Id = _category.Id,
-                        Color = _category.Color,
-                        IconImage = _fileStorage.FilePath,
-                        Name = _category.Name,
-                        CreatedAt = _category.CreatedAt,
-                        UpdatedAt = _category.UpdatedAt,
-                    })
-                    .Join(_db.EventCategories, _categoryVm => _categoryVm.Id, _eventCategory => _eventCategory.CategoryId, (_categoryVm, _eventCategory) => new
-                    {
-                        _categoryVm,
-                        _eventCategory
-                    })
-                    .Where(joindCategory => joindCategory._eventCategory.EventId == eventData.Id)
-                    .Select(joindCategory => joindCategory._categoryVm)
+                var catogories = _db.EventCategories
+                    .Where(_eventCategory => _eventCategory.EventId == eventData.Id)
+                    .Select(_eventCategory => _eventCategory.CategoryId)
                     .ToList();
                 eventDataVm.Categories = catogories;
 
@@ -470,6 +493,22 @@ namespace EventHubSolution.BackendServer.Controllers
                     Avatar = avatar.FilePath
                 };
                 eventDataVm.Creator = creatorVm;
+
+                //TODO: Get event's sub images
+                var subImages = _db.EventSubImages.Join(fileStorages, _subImage => _subImage.ImageId, _fileStorage => _fileStorage.Id, (_subImage, _fileStorage) => new
+                {
+                    Id = _subImage.Id,
+                    ImagePath = _fileStorage.FilePath,
+                    EventId = _subImage.EventId
+                }).Where(image => image.EventId.Equals(id)).Select(image => image.ImagePath).ToList();
+                eventDataVm.SubImages = subImages;
+
+                //TODO: Get event's reasons
+                var reasons = _db.Reasons.Where(reason => reason.EventId.Equals(id)).Select(reason => reason.Name).ToList();
+                eventDataVm.Reasons = reasons;
+
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData($"{CacheKey.EVENT}{id}", eventDataVm, expiryTime);
             }
 
             return Ok(new ApiOkResponse(eventDataVm));
@@ -482,7 +521,7 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> PutEvent(string id, [FromForm] EventCreateRequest request)
         {
             var eventData = await _db.Events.FindAsync(id);
-            if (eventData == null)
+            if (eventData == null || eventData.IsTrash == true)
                 return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
             var user = await _userManager.FindByIdAsync(request.CreatorId);
@@ -525,10 +564,11 @@ namespace EventHubSolution.BackendServer.Controllers
                 //TODO: Update ticket types
                 foreach (var type in request.TicketTypes)
                 {
-                    var ticketType = await _db.TicketTypes.FirstOrDefaultAsync(t => t.Name == type.Name);
-                    ticketType.Name = type.Name;
-                    ticketType.Price = type.Price;
-                    ticketType.Quantity = type.Quantity;
+                    var deserializedType = JsonConvert.DeserializeObject<TicketTypeCreateRequest>(type);
+                    var ticketType = await _db.TicketTypes.FirstOrDefaultAsync(t => t.Name == deserializedType.Name);
+                    ticketType.Name = deserializedType.Name;
+                    ticketType.Price = deserializedType.Price;
+                    ticketType.Quantity = deserializedType.Quantity;
                     _db.TicketTypes.Update(ticketType);
                 }
             }
@@ -550,6 +590,7 @@ namespace EventHubSolution.BackendServer.Controllers
             var result = await _db.SaveChangesAsync();
 
             _cacheService.RemoveData($"{CacheKey.EVENT}{id}");
+            _cacheService.RemoveData(CacheKey.EVENTS);
 
             if (result > 0)
             {
@@ -568,15 +609,18 @@ namespace EventHubSolution.BackendServer.Controllers
 
             //TODO: Delete email content
             var emailContent = _db.EmailContents.FirstOrDefault(ec => ec.EventId == eventData.Id);
-            _db.EmailContents.Remove(emailContent);
+            if (emailContent != null)
+                _db.EmailContents.Remove(emailContent);
 
             //TODO: Delete ticket types
             var ticketTypes = _db.TicketTypes.Where(t => t.EventId == eventData.Id);
-            _db.TicketTypes.RemoveRange(ticketTypes);
+            if (ticketTypes != null && ticketTypes.Count() > 0)
+                _db.TicketTypes.RemoveRange(ticketTypes);
 
             //TODO: Delete event categories
             var eventCategories = _db.EventCategories.Where(t => t.EventId == eventData.Id);
-            _db.EventCategories.RemoveRange(eventCategories);
+            if (eventCategories != null && eventCategories.Count() > 0)
+                _db.EventCategories.RemoveRange(eventCategories);
 
             _db.Events.Remove(eventData);
 
@@ -594,9 +638,9 @@ namespace EventHubSolution.BackendServer.Controllers
             return BadRequest(new ApiBadRequestResponse(""));
         }
 
-        [HttpDelete("{id}/move-to-trash")]
+        [HttpPatch("{id}/move-to-trash")]
         [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.DELETE)]
-        public async Task<IActionResult> MoveEventToTrash(string id)
+        public async Task<IActionResult> PatchMoveEventToTrash(string id)
         {
             var eventData = await _db.Events.FindAsync(id);
             if (eventData == null)
@@ -611,6 +655,29 @@ namespace EventHubSolution.BackendServer.Controllers
             var result = await _db.SaveChangesAsync();
 
             _cacheService.RemoveData($"{CacheKey.EVENT}{id}");
+
+            if (result > 0)
+            {
+                return Ok(new ApiOkResponse());
+            }
+            return BadRequest(new ApiBadRequestResponse(""));
+        }
+
+        [HttpPatch("{id}/recover")]
+        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.UPDATE)]
+        public async Task<IActionResult> PatchRecoverTrashEvent(string id)
+        {
+            var eventData = await _db.Events.FindAsync(id);
+            if (eventData == null)
+                return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
+
+            eventData.IsTrash = false;
+            _db.Events.Update(eventData);
+
+            var user = await _userManager.FindByIdAsync(eventData.CreatorId);
+            user.NumberOfCreatedEvents += 1;
+
+            var result = await _db.SaveChangesAsync();
 
             if (result > 0)
             {
@@ -717,7 +784,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 reviewVms = reviewVms.Where(c => c.Content.ToLower().Contains(filter.search.ToLower())).ToList();
             }
@@ -931,6 +998,111 @@ namespace EventHubSolution.BackendServer.Controllers
             {
                 return BadRequest(new ApiBadRequestResponse(""));
             }
+        }
+        #endregion
+
+        #region Conversations
+        [HttpGet("{eventId}/conversations")]
+        [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetConversationsByHostId(string eventId, [FromQuery] PaginationFilter filter)
+        {
+            // Check cache data
+            var conversationVms = new List<ConversationVm>();
+            var cacheConversations = _cacheService.GetData<IEnumerable<ConversationVm>>($"{CacheKey.CONVERSATIONS}event{eventId}");
+            if (cacheConversations != null && cacheConversations.Count() > 0)
+                conversationVms = cacheConversations.ToList();
+            else
+            {
+                var fileStorages = await _fileService.GetListFileStoragesAsync();
+                conversationVms = (from conversation in _db.Conversations.ToList()
+                                   join eventItem in (from eventEntity in _db.Events.ToList()
+                                                      join file in fileStorages
+                                                      on eventEntity.CoverImageId equals file.Id
+                                                      into joinedEvents
+                                                      from joinedEvent in joinedEvents.DefaultIfEmpty()
+                                                      select new
+                                                      {
+                                                          Id = eventEntity.Id,
+                                                          CoverImage = joinedEvent != null && joinedEvent.FilePath != null ? joinedEvent.FilePath : "",
+                                                          Name = eventEntity.Name
+                                                      })
+                                   on conversation.EventId equals eventItem.Id
+                                   join userItem in (from userEntity in _userManager.Users.ToList()
+                                                     join file in fileStorages
+                                                     on userEntity.AvatarId equals file.Id
+                                                     into joinedUsers
+                                                     from joinedUser in joinedUsers.DefaultIfEmpty()
+                                                     select new
+                                                     {
+                                                         Id = userEntity.Id,
+                                                         Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
+                                                         FullName = userEntity.FullName
+                                                     })
+                                   on conversation.UserId equals userItem.Id
+                                   join message in _db.Messages.ToList()
+                                   on conversation.LastMessageId equals message.Id
+                                   into joinedMessageConversations
+                                   from joinedMessage in joinedMessageConversations.DefaultIfEmpty()
+                                   where conversation.EventId == eventId
+                                   orderby conversation.UpdatedAt ascending
+                                   select new ConversationVm
+                                   {
+                                       Id = conversation.Id,
+                                       EventId = conversation.EventId,
+                                       Event = new ConversationEventVm
+                                       {
+                                           Name = eventItem.Name,
+                                           CoverImage = eventItem.CoverImage
+                                       },
+                                       HostId = conversation.HostId,
+                                       UserId = conversation.UserId,
+                                       User = new ConversationUserVm
+                                       {
+                                           Avatar = userItem.Avatar,
+                                           FullName = userItem.FullName
+                                       },
+                                       LastMessage = joinedMessage != null ? new ConversationLastMessageVm
+                                       {
+                                           Content = joinedMessage.Content,
+                                           SenderId = joinedMessage.UserId,
+                                       } : null,
+                                       CreatedAt = conversation.CreatedAt,
+                                       UpdatedAt = conversation.UpdatedAt
+                                   }).ToList();
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<IEnumerable<ConversationVm>>($"{CacheKey.CONVERSATIONS}event{eventId}", conversationVms, expiryTime);
+            }
+
+            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (!filter.search.IsNullOrEmpty())
+            {
+                conversationVms = conversationVms.Where(c => c.Event.Name.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            conversationVms = filter.order switch
+            {
+                PageOrder.ASC => conversationVms.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => conversationVms.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => conversationVms
+            };
+
+            if (filter.takeAll == false)
+            {
+                conversationVms = conversationVms.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var pagination = new Pagination<ConversationVm>
+            {
+                Items = conversationVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
         }
         #endregion
     }

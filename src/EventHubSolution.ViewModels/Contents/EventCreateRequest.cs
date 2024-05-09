@@ -32,8 +32,12 @@ namespace EventHubSolution.ViewModels.Contents
 
         public bool IsPrivate { get; set; }
 
-        public List<TicketTypeCreateRequest>? TicketTypes { get; set; } = new List<TicketTypeCreateRequest>();
+        public IEnumerable<string>? TicketTypes { get; set; } = new List<string>();
 
-        public EmailContentCreateRequest? EmailContent { get; set; }
+        public IEnumerable<string>? Reasons { get; set; } = new List<string>();
+
+        public IFormFileCollection? EventSubImages { get; set; } = null;
+
+        public EmailContentCreateRequest? EmailContent { get; set; } = null;
     }
 }

@@ -45,8 +45,14 @@ namespace EventHubSolution.ViewModels.Contents
                 .NotNull()
                 .When(x => x.EventPaymentType == EventPaymentType.PAID)
                 .WithMessage("TicketTypes is required");
-            RuleForEach(x => x.TicketTypes).NotNull().WithMessage("Ticket Type is required")
-                .SetValidator(new TicketTypeCreateRequestValidator());
+            //RuleForEach(x => x.TicketTypes.Select(type => JsonConvert.DeserializeObject<TicketTypeCreateRequest>(type))).NotNull().WithMessage("Ticket Type is required")
+            //    .SetValidator(new TicketTypeCreateRequestValidator());
+
+            RuleFor(x => x.Reasons).NotNull().WithMessage("Reasons is required");
+            RuleForEach(x => x.Reasons).NotNull().WithMessage("Reason is required")
+                .MaximumLength(1000).WithMessage("Reason cannot over limit 1000 characters");
+
+            RuleFor(x => x.EventSubImages).NotNull().WithMessage("EventSubImages is required");
 
             RuleFor(x => x.IsPrivate).NotNull().WithMessage("IsPrivate is required");
 

@@ -44,7 +44,7 @@ namespace EventHubSolution.BackendServer.Services
                     FileContainer = container,
                 };
 
-                var addedFileStorage = _db.FileStorages.Add(fileStorage);
+                var addedFileStorage = await _db.FileStorages.AddAsync(fileStorage);
 
                 // Set expiry time
                 var expiryTime = DateTimeOffset.Now.AddMinutes(45);

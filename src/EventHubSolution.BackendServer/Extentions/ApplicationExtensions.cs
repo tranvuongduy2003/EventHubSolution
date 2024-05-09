@@ -28,6 +28,10 @@ namespace EventHubSolution.BackendServer.Extentions
             app.MapHub<ChatHub>("/Chat");
 
             app.UseCors(appCors);
+
+            app.MapGet("/", context => Task.Run(() =>
+                context.Response.Redirect("/swagger/index.html")));
+
             app.MapControllers();
 
             using (var scope = app.Services.CreateScope())

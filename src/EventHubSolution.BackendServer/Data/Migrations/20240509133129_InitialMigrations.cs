@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace EventHubSolution.BackendServer.Migrations
+namespace EventHubSolution.BackendServer.Data.Migrations
 {
     /// <inheritdoc />
     public partial class InitialMigrations : Migration
@@ -30,7 +30,7 @@ namespace EventHubSolution.BackendServer.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
-                    FullName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    FullName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     Dob = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Gender = table.Column<int>(type: "int", nullable: true),
                     Bio = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
@@ -103,6 +103,22 @@ namespace EventHubSolution.BackendServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Conversations",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
+                    EventId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    HostId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    UserId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Conversations", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "EmailAttachments",
                 columns: table => new
                 {
@@ -164,13 +180,18 @@ namespace EventHubSolution.BackendServer.Migrations
                     CoverImageId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
                     Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Location = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     StartTime = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EndTime = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Promotion = table.Column<double>(type: "float", nullable: false),
+                    Promotion = table.Column<double>(type: "float", nullable: true),
                     NumberOfFavourites = table.Column<int>(type: "int", nullable: true),
                     NumberOfShares = table.Column<int>(type: "int", nullable: true),
                     NumberOfSoldTickets = table.Column<int>(type: "int", nullable: true),
                     Status = table.Column<int>(type: "int", nullable: false),
+                    EventCycleType = table.Column<int>(type: "int", nullable: false),
+                    EventPaymentType = table.Column<int>(type: "int", nullable: false),
+                    IsPrivate = table.Column<bool>(type: "bit", nullable: false),
+                    IsTrash = table.Column<bool>(type: "bit", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
@@ -210,7 +231,8 @@ namespace EventHubSolution.BackendServer.Migrations
                 {
                     Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     FileName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    FilePath = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    FileContainer = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    FilePath = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     FileType = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
                     FileSize = table.Column<long>(type: "bigint", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -288,20 +310,21 @@ namespace EventHubSolution.BackendServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Locations",
+                name: "Messages",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
-                    EventId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
-                    City = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    District = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    Street = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    LongitudeX = table.Column<double>(type: "float", nullable: false),
-                    LatitudeY = table.Column<double>(type: "float", nullable: false)
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ImageId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    VideoId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    UserId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    ConversationId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Locations", x => x.Id);
+                    table.PrimaryKey("PK_Messages", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -343,13 +366,26 @@ namespace EventHubSolution.BackendServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Reasons",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
+                    EventId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    Name = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Reasons", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Reviews",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     UserId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
                     EventId = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
-                    Content = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     Rate = table.Column<double>(type: "float", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
@@ -581,6 +617,9 @@ namespace EventHubSolution.BackendServer.Migrations
                 name: "Commands");
 
             migrationBuilder.DropTable(
+                name: "Conversations");
+
+            migrationBuilder.DropTable(
                 name: "EmailAttachments");
 
             migrationBuilder.DropTable(
@@ -620,13 +659,16 @@ namespace EventHubSolution.BackendServer.Migrations
                 name: "Labels");
 
             migrationBuilder.DropTable(
-                name: "Locations");
+                name: "Messages");
 
             migrationBuilder.DropTable(
                 name: "Payments");
 
             migrationBuilder.DropTable(
                 name: "Permissions");
+
+            migrationBuilder.DropTable(
+                name: "Reasons");
 
             migrationBuilder.DropTable(
                 name: "Reviews");

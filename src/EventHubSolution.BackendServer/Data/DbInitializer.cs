@@ -1,6 +1,5 @@
 ﻿using Bogus;
 using EventHubSolution.BackendServer.Data.Entities;
-using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Constants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Extensions;
@@ -17,16 +16,14 @@ namespace EventHubSolution.BackendServer.Data
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly IFileStorageService _fileService;
 
         public DbInitializer(ApplicationDbContext context,
           UserManager<User> userManager,
-          RoleManager<IdentityRole> roleManager, IFileStorageService fileService)
+          RoleManager<IdentityRole> roleManager)
         {
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
-            _fileService = fileService;
         }
 
         public async Task Seed()
@@ -37,8 +34,8 @@ namespace EventHubSolution.BackendServer.Data
             SeedCommands().Wait();
             SeedPermission().Wait();
             SeedCategories().Wait();
-            SeedEvents().Wait();
-            SeedReviews().Wait();
+            //SeedEvents().Wait();
+            //SeedReviews().Wait();
         }
 
         private async Task SeedRoles()
@@ -154,14 +151,16 @@ namespace EventHubSolution.BackendServer.Data
                     new Function { Id = FunctionCode.CONTENT_EVENT.GetDisplayName(), Name = "Sự kiện", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 2, Url = "/content/event" },
                     new Function { Id = FunctionCode.CONTENT_REVIEW.GetDisplayName(), Name = "Đánh giá", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 3, Url = "/content/review" },
                     new Function { Id = FunctionCode.CONTENT_TICKET.GetDisplayName(), Name = "Vé", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 3, Url = "/content/ticket" },
+                    new Function { Id = FunctionCode.CONTENT_CHAT.GetDisplayName(), Name = "Hội thoại", ParentId = FunctionCode.CONTENT.GetDisplayName(), Url = "/content/chat" },
 
                     new Function { Id = FunctionCode.STATISTIC.GetDisplayName(), Name = "Thống kê", ParentId = null, Url = "/statistic" },
                     new Function { Id = FunctionCode.SYSTEM.GetDisplayName(), Name = "Hệ thống", ParentId = null, Url = "/system" },
 
-                    new Function { Id = FunctionCode.SYSTEM_USER.GetDisplayName(), Name = "Người dùng", ParentId = "SYSTEM", Url = "/system/user" },
-                    new Function { Id = FunctionCode.SYSTEM_ROLE.GetDisplayName(), Name = "Nhóm quyền", ParentId = "SYSTEM", Url = "/system/role" },
-                    new Function { Id = FunctionCode.SYSTEM_FUNCTION.GetDisplayName(), Name = "Chức năng", ParentId = "SYSTEM", Url = "/system/function" },
-                    new Function { Id = FunctionCode.SYSTEM_PERMISSION.GetDisplayName(), Name = "Quyền hạn", ParentId = "SYSTEM", Url = "/system/permission" },
+                    new Function { Id = FunctionCode.SYSTEM_USER.GetDisplayName(), Name = "Người dùng", ParentId = FunctionCode.SYSTEM.GetDisplayName(), Url = "/system/user" },
+                    new Function { Id = FunctionCode.SYSTEM_ROLE.GetDisplayName(), Name = "Nhóm quyền", ParentId = FunctionCode.SYSTEM.GetDisplayName(), Url = "/system/role" },
+                    new Function { Id = FunctionCode.SYSTEM_FUNCTION.GetDisplayName(), Name = "Chức năng", ParentId = FunctionCode.SYSTEM.GetDisplayName(), Url = "/system/function" },
+                    new Function { Id = FunctionCode.SYSTEM_PERMISSION.GetDisplayName(), Name = "Quyền hạn", ParentId = FunctionCode.SYSTEM.GetDisplayName(), Url = "/system/permission" },
+
                 });
 
                 await _context.SaveChangesAsync();
@@ -251,6 +250,10 @@ namespace EventHubSolution.BackendServer.Data
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), customerRole.Id, "UPDATE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), customerRole.Id, "DELETE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CHAT.GetDisplayName(), customerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CHAT.GetDisplayName(), customerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CHAT.GetDisplayName(), customerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CHAT.GetDisplayName(), customerRole.Id, "DELETE"));
                 _context.Permissions.Add(new Permission(FunctionCode.SYSTEM.GetDisplayName(), customerRole.Id, "VIEW"));
                 _context.Permissions.Add(new Permission(FunctionCode.SYSTEM.GetDisplayName(), customerRole.Id, "UPDATE"));
                 _context.Permissions.Add(new Permission(FunctionCode.SYSTEM_USER.GetDisplayName(), customerRole.Id, "VIEW"));
@@ -276,6 +279,10 @@ namespace EventHubSolution.BackendServer.Data
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), organizerRole.Id, "VIEW"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), organizerRole.Id, "DELETE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CHAT.GetDisplayName(), organizerRole.Id, "VIEW"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CHAT.GetDisplayName(), organizerRole.Id, "UPDATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CHAT.GetDisplayName(), organizerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_CHAT.GetDisplayName(), organizerRole.Id, "DELETE"));
                 _context.Permissions.Add(new Permission(FunctionCode.SYSTEM_USER.GetDisplayName(), organizerRole.Id, "VIEW"));
                 _context.Permissions.Add(new Permission(FunctionCode.SYSTEM_USER.GetDisplayName(), organizerRole.Id, "UPDATE"));
 
@@ -381,6 +388,10 @@ namespace EventHubSolution.BackendServer.Data
                         .RuleFor(f => f.FileSize, f => f.Random.Int(1000, 5000))
                         .RuleFor(f => f.FilePath, f => f.Image.Business(640, 640));
 
+                var fakerReason = new Faker<Reason>()
+                        .RuleFor(f => f.Id, _ => Guid.NewGuid().ToString())
+                        .RuleFor(t => t.Name, f => f.Commerce.ProductDescription());
+
                 var fakerEventCategory = new Faker<EventCategory>()
                     .RuleFor(ec => ec.CategoryId, f => f.PickRandom<Category>(categories).Id);
 
@@ -441,11 +452,16 @@ namespace EventHubSolution.BackendServer.Data
                     _context.TicketTypes.AddRange(ticketTypes);
                     #endregion
 
+                    #region Reasons
+                    fakerReason.RuleFor(t => t.EventId, _ => eventItem.Id);
+                    var reasons = fakerReason.Generate(3);
+                    _context.Reasons.AddRange(reasons);
+                    #endregion
+
                 }
 
                 await _context.SaveChangesAsync();
             }
-
         }
 
         private async Task SeedReviews()

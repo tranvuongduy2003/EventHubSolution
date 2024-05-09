@@ -146,7 +146,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var metadata = new Metadata(userVms.Count(), filter.page, filter.size, filter.takeAll);
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 userVms = userVms.Where(u =>
                     u.FullName.ToLower().Contains(filter.search.ToLower()) ||
@@ -404,7 +404,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 reviewVms = reviewVms.Where(c => c.Content.ToLower().Contains(filter.search.ToLower())).ToList();
             }
@@ -579,7 +579,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms.Count(e => (bool)e.IsTrash)
             );
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
             }
@@ -610,7 +610,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e => e.Location.ToLower().Contains(filter.location.ToLower())).ToList();
             }
 
-            if (!filter.categoryIds.IsNullOrEmpty())
+            if (filter.categoryIds != null && filter.categoryIds.Count > 0)
             {
                 eventVms = eventVms.Where(e => e.Categories.Exists(c => filter.categoryIds.Contains(c.Id))).ToList();
             }
@@ -798,7 +798,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms.Count(e => (bool)e.IsTrash)
             );
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
             }
@@ -829,7 +829,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e => e.Location.ToLower().Contains(filter.location.ToLower())).ToList();
             }
 
-            if (!filter.categoryIds.IsNullOrEmpty())
+            if (filter.categoryIds != null && filter.categoryIds.Count > 0)
             {
                 eventVms = eventVms.Where(e => e.Categories.Exists(c => filter.categoryIds.Contains(c.Id))).ToList();
             }
@@ -864,6 +864,191 @@ namespace EventHubSolution.BackendServer.Controllers
             var pagination = new Pagination<EventVm, EventMetadata>
             {
                 Items = eventVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
+
+        [HttpGet("{userId}/conversations-by-user")]
+        [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetConversationsByUserId(string userId, [FromQuery] PaginationFilter filter)
+        {
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
+            var conversationVms = (from conversation in _db.Conversations.ToList()
+                                   join eventItem in (from eventEntity in _db.Events.ToList()
+                                                      join file in fileStorages
+                                                      on eventEntity.CoverImageId equals file.Id
+                                                      into joinedEvents
+                                                      from joinedEvent in joinedEvents.DefaultIfEmpty()
+                                                      select new
+                                                      {
+                                                          Id = eventEntity.Id,
+                                                          CoverImage = joinedEvent != null && joinedEvent.FilePath != null ? joinedEvent.FilePath : "",
+                                                          Name = eventEntity.Name
+                                                      })
+                                   on conversation.EventId equals eventItem.Id
+                                   join userItem in (from userEntity in _userManager.Users.ToList()
+                                                     join file in fileStorages
+                                                     on userEntity.AvatarId equals file.Id
+                                                     into joinedUsers
+                                                     from joinedUser in joinedUsers.DefaultIfEmpty()
+                                                     select new
+                                                     {
+                                                         Id = userEntity.Id,
+                                                         Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
+                                                         FullName = userEntity.FullName
+                                                     })
+                                   on conversation.UserId equals userItem.Id
+                                   join message in _db.Messages.ToList()
+                                   on conversation.LastMessageId equals message.Id
+                                   into joinedMessageConversations
+                                   from joinedMessage in joinedMessageConversations.DefaultIfEmpty()
+                                   where conversation.UserId == userId
+                                   orderby conversation.UpdatedAt ascending
+                                   select new ConversationVm
+                                   {
+                                       Id = conversation.Id,
+                                       EventId = conversation.EventId,
+                                       Event = new ConversationEventVm
+                                       {
+                                           Name = eventItem.Name,
+                                           CoverImage = eventItem.CoverImage
+                                       },
+                                       HostId = conversation.HostId,
+                                       UserId = conversation.UserId,
+                                       User = new ConversationUserVm
+                                       {
+                                           Avatar = userItem.Avatar,
+                                           FullName = userItem.FullName
+                                       },
+                                       LastMessage = joinedMessage != null ? new ConversationLastMessageVm
+                                       {
+                                           Content = joinedMessage.Content,
+                                           SenderId = joinedMessage.UserId,
+                                       } : null,
+                                       CreatedAt = conversation.CreatedAt,
+                                       UpdatedAt = conversation.UpdatedAt
+                                   }).ToList();
+
+            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (!filter.search.IsNullOrEmpty())
+            {
+                conversationVms = conversationVms.Where(c => c.Event.Name.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            conversationVms = filter.order switch
+            {
+                PageOrder.ASC => conversationVms.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => conversationVms.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => conversationVms
+            };
+
+            if (filter.takeAll == false)
+            {
+                conversationVms = conversationVms.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var pagination = new Pagination<ConversationVm>
+            {
+                Items = conversationVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
+
+        [HttpGet("{hostId}/conversations-by-host")]
+        [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetConversationsByHostId(string hostId, [FromQuery] PaginationFilter filter)
+        {
+
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
+            var conversationVms = (from conversation in _db.Conversations.ToList()
+                                   join eventItem in (from eventEntity in _db.Events.ToList()
+                                                      join file in fileStorages
+                                                      on eventEntity.CoverImageId equals file.Id
+                                                      into joinedEvents
+                                                      from joinedEvent in joinedEvents.DefaultIfEmpty()
+                                                      select new
+                                                      {
+                                                          Id = eventEntity.Id,
+                                                          CoverImage = joinedEvent != null && joinedEvent.FilePath != null ? joinedEvent.FilePath : "",
+                                                          Name = eventEntity.Name
+                                                      })
+                                   on conversation.EventId equals eventItem.Id
+                                   join userItem in (from userEntity in _userManager.Users.ToList()
+                                                     join file in fileStorages
+                                                     on userEntity.AvatarId equals file.Id
+                                                     into joinedUsers
+                                                     from joinedUser in joinedUsers.DefaultIfEmpty()
+                                                     select new
+                                                     {
+                                                         Id = userEntity.Id,
+                                                         Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
+                                                         FullName = userEntity.FullName
+                                                     })
+                                   on conversation.UserId equals userItem.Id
+                                   join message in _db.Messages.ToList()
+                                   on conversation.LastMessageId equals message.Id
+                                   into joinedMessageConversations
+                                   from joinedMessage in joinedMessageConversations.DefaultIfEmpty()
+                                   where conversation.HostId == hostId
+                                   orderby conversation.UpdatedAt ascending
+                                   select new ConversationVm
+                                   {
+                                       Id = conversation.Id,
+                                       EventId = conversation.EventId,
+                                       Event = new ConversationEventVm
+                                       {
+                                           Name = eventItem.Name,
+                                           CoverImage = eventItem.CoverImage
+                                       },
+                                       HostId = conversation.HostId,
+                                       UserId = conversation.UserId,
+                                       User = new ConversationUserVm
+                                       {
+                                           Avatar = userItem.Avatar,
+                                           FullName = userItem.FullName
+                                       },
+                                       LastMessage = joinedMessage != null ? new ConversationLastMessageVm
+                                       {
+                                           Content = joinedMessage.Content,
+                                           SenderId = joinedMessage.UserId,
+                                       } : null,
+                                       CreatedAt = conversation.CreatedAt,
+                                       UpdatedAt = conversation.UpdatedAt
+                                   }).ToList();
+
+            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (!filter.search.IsNullOrEmpty())
+            {
+                conversationVms = conversationVms.Where(c => c.Event.Name.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            conversationVms = filter.order switch
+            {
+                PageOrder.ASC => conversationVms.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => conversationVms.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => conversationVms
+            };
+
+            if (filter.takeAll == false)
+            {
+                conversationVms = conversationVms.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var pagination = new Pagination<ConversationVm>
+            {
+                Items = conversationVms,
                 Metadata = metadata,
             };
 

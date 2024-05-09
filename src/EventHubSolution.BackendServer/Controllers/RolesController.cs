@@ -8,6 +8,7 @@ using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
@@ -56,7 +57,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var metadata = new Metadata(role.Count(), filter.page, filter.size, filter.takeAll);
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 role = role.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
             }

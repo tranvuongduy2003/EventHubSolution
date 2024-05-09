@@ -9,6 +9,7 @@ using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.General;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
@@ -90,7 +91,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var metadata = new Metadata(categories.Count(), filter.page, filter.size, filter.takeAll);
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 categories = categories.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
             }

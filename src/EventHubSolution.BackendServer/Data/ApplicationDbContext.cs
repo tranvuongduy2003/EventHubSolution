@@ -53,6 +53,9 @@ namespace EventHubSolution.BackendServer.Data
             builder.Entity<EmailContent>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<Payment>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<Ticket>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
+            builder.Entity<Reason>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
+            builder.Entity<Conversation>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
+            builder.Entity<Message>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
         }
 
         public DbSet<User> Users { set; get; }
@@ -77,6 +80,9 @@ namespace EventHubSolution.BackendServer.Data
         public DbSet<TicketType> TicketTypes { set; get; }
         public DbSet<UserFollower> UserFollowers { set; get; }
         public DbSet<EventCategory> EventCategories { set; get; }
+        public DbSet<Reason> Reasons { set; get; }
         public DbSet<Invitation> Invitations { set; get; }
+        public DbSet<Conversation> Conversations { get; set; }
+        public DbSet<Message> Messages { get; set; }
     }
 }

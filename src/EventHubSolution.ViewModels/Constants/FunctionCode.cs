@@ -10,6 +10,7 @@
         CONTENT_REVIEW,
         CONTENT_TICKET,
         CONTENT_PAYMENT,
+        CONTENT_CHAT,
 
         STATISTIC,
 
@@ -18,5 +19,6 @@
         SYSTEM_ROLE,
         SYSTEM_FUNCTION,
         SYSTEM_PERMISSION,
+
     }
 }

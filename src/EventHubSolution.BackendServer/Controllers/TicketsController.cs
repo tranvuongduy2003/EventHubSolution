@@ -6,6 +6,7 @@ using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.General;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
@@ -58,7 +59,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
 
-            if (filter.search != null)
+            if (!filter.search.IsNullOrEmpty())
             {
                 tickets = tickets.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
                                              c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||

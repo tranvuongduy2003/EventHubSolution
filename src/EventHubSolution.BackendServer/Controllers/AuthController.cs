@@ -43,6 +43,7 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpPost("signup")]
+        [ApiValidationFilter]
         public async Task<IActionResult> SignUp([FromBody] UserCreateRequest request)
         {
             var useByEmail = await _userManager.FindByEmailAsync(request.Email);
@@ -87,7 +88,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     RefreshToken = refreshToken
                 };
 
-                await SendRegistrationConfirmationEmailAsync(userToReturn.Email, userToReturn.UserName);
+                //await SendRegistrationConfirmationEmailAsync(userToReturn.Email, userToReturn.UserName);
 
                 return CreatedAtAction(nameof(SignUp), new { id = userToReturn.Id }, signUpResponse);
             }

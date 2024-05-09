@@ -4,19 +4,16 @@ using EventHubSolution.BackendServer.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace EventHubSolution.BackendServer.Migrations
+namespace EventHubSolution.BackendServer.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20240503081328_AddEventFields")]
-    partial class AddEventFields
+    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -90,6 +87,43 @@ namespace EventHubSolution.BackendServer.Migrations
                     b.HasKey("CommandId", "FunctionId");
 
                     b.ToTable("CommandInFunctions");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Conversation", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("HostId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("LastMessageId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Conversations");
                 });
 
             modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.EmailAttachment", b =>
@@ -204,6 +238,11 @@ namespace EventHubSolution.BackendServer.Migrations
 
                     b.Property<bool?>("IsTrash")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -432,7 +471,7 @@ namespace EventHubSolution.BackendServer.Migrations
                     b.ToTable("LabelInUsers");
                 });
 
-            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Location", b =>
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Message", b =>
                 {
                     b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
@@ -440,29 +479,37 @@ namespace EventHubSolution.BackendServer.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
-                    b.Property<string>("City")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                    b.Property<string>("Content")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
 
-                    b.Property<string>("District")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("EventId")
+                    b.Property<string>("ConversationId")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
-                    b.Property<string>("Street")
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ImageId")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("VideoId")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Locations");
+                    b.ToTable("Messages");
                 });
 
             modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Payment", b =>
@@ -549,6 +596,29 @@ namespace EventHubSolution.BackendServer.Migrations
                     b.HasKey("FunctionId", "RoleId", "CommandId");
 
                     b.ToTable("Permissions");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Reason", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Reasons");
                 });
 
             modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Review", b =>

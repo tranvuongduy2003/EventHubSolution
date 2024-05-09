@@ -27,5 +27,9 @@
         public const string REVIEW = "REVIEW";
         public const string EVENTCATEGORIES = "EVENTCATEGORIES";
         public const string EVENTCATEGORIE = "EVENTCATEGORIE";
+        public const string CONVERSATIONS = "CONVERSATIONS";
+        public const string CONVERSATION = "CONVERSATION";
+        public const string MESSAGES = "MESSAGES";
+        public const string MESSAGE = "MESSAGE";
     }
 }

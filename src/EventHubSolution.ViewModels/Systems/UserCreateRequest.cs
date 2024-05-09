@@ -12,7 +12,7 @@ namespace EventHubSolution.ViewModels.Systems
 
         public DateTime? Dob { get; set; }
 
-        public string FullName { get; set; }
+        public string? FullName { get; set; }
 
         public string Password { get; set; }
 
