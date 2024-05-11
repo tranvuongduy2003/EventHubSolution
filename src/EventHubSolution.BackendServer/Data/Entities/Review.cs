@@ -22,6 +22,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string EventId { get; set; }
 
         [MaxLength(1000)]
+        [Column(TypeName = "nvarchar(1000)")]
         public string? Content { get; set; }
 
         [Required]

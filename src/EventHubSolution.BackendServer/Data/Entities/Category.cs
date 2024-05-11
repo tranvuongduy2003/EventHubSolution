@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
 {
-    [Table("CategoryIds")]
+    [Table("Categories")]
     public class Category : IDateTracking
     {
         [Key]
@@ -15,6 +15,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [Required]
         [MaxLength(100)]
+        [Column(TypeName = "nvarchar(100)")]
         public string Name { get; set; }
 
         [Required]

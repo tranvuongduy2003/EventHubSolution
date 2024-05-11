@@ -13,7 +13,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string Id { get; set; }
 
         [Required]
-        [MaxLength(5000)]
+        [Column(TypeName = "nvarchar(max)")]
         public string Content { get; set; }
 
         [Required]

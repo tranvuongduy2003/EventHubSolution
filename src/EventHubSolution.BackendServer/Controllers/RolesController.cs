@@ -3,13 +3,10 @@ using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.ViewModels.General;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
@@ -51,45 +48,15 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpGet]
         [ClaimRequirement(FunctionCode.SYSTEM_ROLE, CommandCode.VIEW)]
-        public async Task<IActionResult> GetRoles([FromQuery] PaginationFilter filter)
+        public async Task<IActionResult> GetRoles()
         {
-            var role = _roleManager.Roles.ToList();
-
-            var metadata = new Metadata(role.Count(), filter.page, filter.size, filter.takeAll);
-
-            if (!filter.search.IsNullOrEmpty())
-            {
-                role = role.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
-            }
-
-            role = filter.order switch
-            {
-                PageOrder.ASC => role.OrderBy(c => c.Name).ToList(),
-                PageOrder.DESC => role.OrderByDescending(c => c.Name).ToList(),
-                _ => role
-            };
-
-            if (filter.takeAll == false)
-            {
-                role = role.Skip((filter.page - 1) * filter.size)
-                    .Take(filter.size).ToList();
-            }
-
-            var roleVms = role.Select(r => new RoleVm()
+            var roleVms = _roleManager.Roles.Select(r => new RoleVm()
             {
                 Id = r.Id,
                 Name = r.Name
             }).ToList();
 
-            var pagination = new Pagination<RoleVm>
-            {
-                Items = roleVms,
-                Metadata = metadata,
-            };
-
-            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
-
-            return Ok(new ApiOkResponse(pagination));
+            return Ok(new ApiOkResponse(roleVms));
         }
 
         [HttpGet("{id}")]

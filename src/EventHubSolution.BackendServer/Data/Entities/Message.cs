@@ -14,7 +14,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string Id { get; set; }
 
         [MaxLength(1000)]
-        [Column(TypeName = "varchar(1000)")]
+        [Column(TypeName = "nvarchar(1000)")]
         public string? Content { get; set; }
 
         [MaxLength(50)]

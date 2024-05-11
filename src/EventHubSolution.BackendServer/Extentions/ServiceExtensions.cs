@@ -80,6 +80,7 @@ namespace EventHubSolution.BackendServer.Extentions
                         new string[] { }
                     }
                 });
+                option.AddSignalRSwaggerGen();
             });
 
             return services;

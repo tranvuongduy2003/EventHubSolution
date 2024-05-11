@@ -19,7 +19,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [Required]
         [MaxLength(1000)]
-        [Column(TypeName = "varchar(1000)")]
+        [Column(TypeName = "nvarchar(1000)")]
         public string Name { get; set; }
 
         [NotMapped]

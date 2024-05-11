@@ -8,9 +8,11 @@ using EventHubSolution.ViewModels.WebSockets;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using SignalRSwaggerGen.Attributes;
 
 namespace EventHubSolution.BackendServer.Hubs
 {
+    [SignalRHub]
     public class ChatHub : Hub
     {
         private readonly ApplicationDbContext _db;

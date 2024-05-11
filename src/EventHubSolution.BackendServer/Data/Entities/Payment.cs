@@ -1,5 +1,5 @@
-﻿using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.BackendServer.Data.Interfaces;
+﻿using EventHubSolution.BackendServer.Data.Interfaces;
+using EventHubSolution.ViewModels.Constants;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -32,6 +32,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [Required]
         [MaxLength(100)]
+        [Column(TypeName = "nvarchar(100)")]
         public string CustomerName { get; set; }
 
         [Required]

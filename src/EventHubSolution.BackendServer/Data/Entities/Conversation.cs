@@ -28,6 +28,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "varchar(50)")]
         public string UserId { get; set; }
 
+        [Column(TypeName = "nvarchar(max)")]
         public string? LastMessageId { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; }

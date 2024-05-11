@@ -3,11 +3,9 @@ using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.ViewModels.General;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
@@ -54,31 +52,9 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpGet]
         [ClaimRequirement(FunctionCode.SYSTEM_FUNCTION, CommandCode.VIEW)]
-        public async Task<IActionResult> GetFunctions([FromQuery] PaginationFilter filter)
+        public async Task<IActionResult> GetFunctions()
         {
-            var functions = _db.Functions.ToList();
-
-            var metadata = new Metadata(functions.Count(), filter.page, filter.size, filter.takeAll);
-
-            if (filter.search != null)
-            {
-                functions = functions.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
-            }
-
-            functions = filter.order switch
-            {
-                PageOrder.ASC => functions.OrderBy(c => c.SortOrder).ToList(),
-                PageOrder.DESC => functions.OrderByDescending(c => c.SortOrder).ToList(),
-                _ => functions
-            };
-
-            if (filter.takeAll == false)
-            {
-                functions = functions.Skip((filter.page - 1) * filter.size)
-                    .Take(filter.size).ToList();
-            }
-
-            var functionVms = functions.Select(f => new FunctionVm()
+            var functionVms = _db.Functions.Select(f => new FunctionVm()
             {
                 Id = f.Id,
                 Name = f.Name,
@@ -87,15 +63,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 ParentId = f.ParentId,
             }).ToList();
 
-            var pagination = new Pagination<FunctionVm>
-            {
-                Items = functionVms,
-                Metadata = metadata,
-            };
-
-            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
-
-            return Ok(new ApiOkResponse(pagination));
+            return Ok(new ApiOkResponse(functionVms));
         }
 
         [HttpGet("{id}")]

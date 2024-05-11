@@ -28,14 +28,17 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [Required]
         [MaxLength(100)]
+        [Column(TypeName = "nvarchar(100)")]
         public string Name { get; set; }
 
         [Required]
         [MaxLength(1000)]
+        [Column(TypeName = "nvarchar(1000)")]
         public string Description { get; set; }
 
         [Required]
         [MaxLength(1000)]
+        [Column(TypeName = "nvarchar(1000)")]
         public string Location { get; set; }
 
         [Required]

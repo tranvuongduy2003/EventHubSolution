@@ -25,6 +25,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         }
 
         [MaxLength(50)]
+        [Column(TypeName = "nvarchar(50)")]
         public string? FullName { get; set; }
 
         public DateTime? Dob { get; set; }
@@ -33,6 +34,7 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public Gender? Gender { get; set; }
 
         [MaxLength(1000)]
+        [Column(TypeName = "nvarchar(1000)")]
         public string? Bio { get; set; }
 
         [MaxLength(50)]
