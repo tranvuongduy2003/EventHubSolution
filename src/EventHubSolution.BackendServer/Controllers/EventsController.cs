@@ -203,7 +203,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                                             })
                                        on _eventCategory.CategoryId equals _categoryVm.Id
                                        into joinedEventCategories
-                                       from _joinedEventCategory in joinedEventCategories.DefaultIfEmpty()
+                                       from _joinedEventCategory in joinedEventCategories
                                        select new
                                        {
                                            EventId = _eventCategory.EventId,
@@ -245,7 +245,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                           IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
                                           EventCycleType = _event.EventCycleType,
                                           EventPaymentType = _event.EventPaymentType,
-                                          Status = _event.Status,
+                                          Status = _event.StartTime > DateTime.UtcNow ? EventStatus.UPCOMING : _event.EndTime < DateTime.UtcNow ? EventStatus.CLOSED : EventStatus.OPENING,
                                           Location = _event.Location,
                                           CreatedAt = _event.CreatedAt,
                                           UpdatedAt = _event.UpdatedAt
@@ -291,7 +291,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                     {
                                         var eventVm = groupedEvent.Key;
                                         eventVm.Categories = groupedEvent
-                                                                .Where(e => e._joinedCategoryEvent != null)
+                                                                .Where(e => e._joinedCategoryEvent?.CategoryVm != null)
                                                                 .Select(e => e._joinedCategoryEvent.CategoryVm)
                                                                 .ToList();
                                         return eventVm;
@@ -433,12 +433,12 @@ namespace EventHubSolution.BackendServer.Controllers
                 }).ToList();
                 eventDataVm.TicketTypes = ticketTypes;
 
-                //TODO: Get event's categories
-                var catogories = _db.EventCategories
+                //TODO: Get event's category ids
+                var catogoryIds = _db.EventCategories
                     .Where(_eventCategory => _eventCategory.EventId == eventData.Id)
                     .Select(_eventCategory => _eventCategory.CategoryId)
                     .ToList();
-                eventDataVm.Categories = catogories;
+                eventDataVm.CategoryIds = catogoryIds;
 
                 //TODO: Get event's email content
                 var emailContentVm = _db.EmailAttachments.ToList()
@@ -495,12 +495,16 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventDataVm.Creator = creatorVm;
 
                 //TODO: Get event's sub images
-                var subImages = _db.EventSubImages.Join(fileStorages, _subImage => _subImage.ImageId, _fileStorage => _fileStorage.Id, (_subImage, _fileStorage) => new
-                {
-                    Id = _subImage.Id,
-                    ImagePath = _fileStorage.FilePath,
-                    EventId = _subImage.EventId
-                }).Where(image => image.EventId.Equals(id)).Select(image => image.ImagePath).ToList();
+                var subImages = _db.EventSubImages.ToList()
+                    .Join(fileStorages, _subImage => _subImage.ImageId, _fileStorage => _fileStorage.Id, (_subImage, _fileStorage) => new
+                    {
+                        Id = _subImage.Id,
+                        ImagePath = _fileStorage.FilePath,
+                        EventId = _subImage.EventId
+                    })
+                    .Where(image => image.EventId.Equals(id))
+                    .Select(image => image.ImagePath)
+                    .ToList();
                 eventDataVm.SubImages = subImages;
 
                 //TODO: Get event's reasons

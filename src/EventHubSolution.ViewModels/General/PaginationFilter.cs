@@ -5,8 +5,6 @@ namespace EventHubSolution.ViewModels.General
 {
     public class PaginationFilter
     {
-        const int maxPageSize = 10;
-
         private int _page = 1;
         [DefaultValue(1)]
         public int page
@@ -22,8 +20,8 @@ namespace EventHubSolution.ViewModels.General
         }
 
 
-        private int _size = maxPageSize;
-        [DefaultValue(maxPageSize)]
+        private int _size = 10;
+        [DefaultValue(10)]
         public int size
         {
             get
@@ -32,7 +30,7 @@ namespace EventHubSolution.ViewModels.General
             }
             set
             {
-                _size = value > maxPageSize ? maxPageSize : value;
+                _size = value < 1 ? 1 : value;
             }
         }
 

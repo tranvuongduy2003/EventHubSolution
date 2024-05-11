@@ -53,7 +53,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Categories");
+                    b.ToTable("CategoryIds");
                 });
 
             modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Command", b =>

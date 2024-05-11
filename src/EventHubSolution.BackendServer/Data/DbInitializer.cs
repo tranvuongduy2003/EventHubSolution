@@ -1,4 +1,5 @@
-﻿using Bogus;
+﻿
+using Bogus;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.ViewModels.Constants;
 using Microsoft.AspNetCore.Identity;

@@ -513,7 +513,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                       Promotion = _event.Promotion ?? 0.0,
                                       EventCycleType = _event.EventCycleType,
                                       EventPaymentType = _event.EventPaymentType,
-                                      Status = _event.Status,
+                                      Status = _event.StartTime > DateTime.UtcNow ? EventStatus.UPCOMING : _event.EndTime < DateTime.UtcNow ? EventStatus.CLOSED : EventStatus.OPENING,
                                       IsPrivate = _event.IsPrivate,
                                       IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
                                       Location = _event.Location,
@@ -561,7 +561,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 {
                     var eventVm = groupedEvent.Key;
                     eventVm.Categories = groupedEvent
-                        .Where(e => e._joinedCategoryEvent != null)
+                        .Where(e => e._joinedCategoryEvent?.CategoryVm != null)
                         .Select(e => e._joinedCategoryEvent.CategoryVm)
                         .ToList();
                     return eventVm;
@@ -724,7 +724,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                           StartTime = _event.StartTime,
                                           EndTime = _event.EndTime,
                                           Promotion = _event.Promotion ?? 0.0,
-                                          Status = _event.Status,
+                                          Status = _event.StartTime > DateTime.UtcNow ? EventStatus.UPCOMING : _event.EndTime < DateTime.UtcNow ? EventStatus.CLOSED : EventStatus.OPENING,
                                           IsPrivate = _event.IsPrivate,
                                           IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
                                           EventPaymentType = _event.EventPaymentType,
@@ -774,7 +774,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                     {
                                         var eventVm = groupedEvent.Key;
                                         eventVm.Categories = groupedEvent
-                                                                .Where(e => e._joinedCategoryEvent != null)
+                                                                .Where(e => e._joinedCategoryEvent?.CategoryVm != null)
                                                                 .Select(e => e._joinedCategoryEvent.CategoryVm)
                                                                 .ToList();
                                         return eventVm;

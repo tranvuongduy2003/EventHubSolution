@@ -22,7 +22,7 @@ namespace EventHubSolution.ViewModels.Contents
 
         public DateTime EndTime { get; set; }
 
-        public List<string> Categories { get; set; } = new List<string>();
+        public List<string> CategoryIds { get; set; } = new List<string>();
 
         public List<string> SubImages { get; set; } = new List<string>();
 

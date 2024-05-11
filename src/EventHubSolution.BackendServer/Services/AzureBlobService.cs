@@ -40,6 +40,7 @@ namespace EventHubSolution.BackendServer.Services
                 {
                     sasBuilder.ExpiresOn = DateTimeOffset.UtcNow.AddDays(1);
                     sasBuilder.SetPermissions(BlobContainerSasPermissions.Read);
+                    sasBuilder.Protocol.HasFlag(SasProtocol.HttpsAndHttp);
                 }
                 else
                 {

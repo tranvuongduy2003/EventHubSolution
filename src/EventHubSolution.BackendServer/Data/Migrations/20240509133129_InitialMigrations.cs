@@ -63,7 +63,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Categories",
+                name: "CategoryIds",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
@@ -608,7 +608,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "Categories");
+                name: "CategoryIds");
 
             migrationBuilder.DropTable(
                 name: "CommandInFunctions");

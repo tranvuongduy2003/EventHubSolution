@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
 {
-    [Table("Categories")]
+    [Table("CategoryIds")]
     public class Category : IDateTracking
     {
         [Key]
