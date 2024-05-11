@@ -265,6 +265,7 @@ namespace EventHubSolution.BackendServer.Controllers
             //TODO: Upload avatar image
             if (request.Avatar != null)
             {
+                await _fileService.DeleteFileByIdAsync(user.AvatarId);
                 var avatarImage = await _fileService.SaveFileToFileStorageAsync(request.Avatar, FileContainer.USERS);
                 user.AvatarId = avatarImage.Id;
                 userVm.Avatar = avatarImage.FilePath;
