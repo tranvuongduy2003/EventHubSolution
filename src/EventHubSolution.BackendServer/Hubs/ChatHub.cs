@@ -1,8 +1,6 @@
-﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.BackendServer.Data;
+﻿using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Services;
-using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.WebSockets;
 using Microsoft.AspNetCore.Identity;
@@ -17,16 +15,21 @@ namespace EventHubSolution.BackendServer.Hubs
     {
         private readonly ApplicationDbContext _db;
         private readonly UserManager<User> _userManager;
-        private readonly FileStorageService _fileStorage;
+        private readonly IFileStorageService _fileStorage;
 
-        public ChatHub(ApplicationDbContext db, UserManager<User> userManager, FileStorageService fileStorage)
+        public ChatHub(ApplicationDbContext db, UserManager<User> userManager, IFileStorageService fileStorage)
         {
             _db = db;
             _userManager = userManager;
             _fileStorage = fileStorage;
         }
 
-        [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.CREATE)]
+        public async Task TestConnection()
+        {
+            await Clients.Group(Context.ConnectionId).SendAsync("TestConnection", "Connect successfully!");
+        }
+
+        //[ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.CREATE)]
         public async Task JoinChatRoom(JoinChatRoomRequest request)
         {
             var eventData = await _db.Events.FindAsync(request.EventId);
@@ -116,7 +119,7 @@ namespace EventHubSolution.BackendServer.Hubs
             }
         }
 
-        [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.CREATE)]
+        //[ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.CREATE)]
         public async Task SendMessage(SendMessageRequest request)
         {
             var conversation = await _db.Conversations.FindAsync(request.ConversationId);

@@ -28,7 +28,9 @@ namespace EventHubSolution.BackendServer.Extentions
 
             services.ConfigureApplicationDbContext(configuration);
 
-            services.AddSignalR();
+            services
+                .AddSignalR()
+                .AddAzureSignalR(configuration.GetSection("AzureSignalR:ConnectionString").Value);
 
             services.AddCors(p =>
                 p.AddPolicy(appCors, build => { build.WithOrigins("*").AllowAnyMethod().AllowAnyHeader(); }));

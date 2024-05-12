@@ -40,7 +40,11 @@ namespace EventHubSolution.BackendServer.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> PostEvent([FromForm] EventCreateRequest request)
         {
-            var eventData = new Event()
+            var eventData = await _db.Events.FirstOrDefaultAsync(e => e.Name.ToLower().Equals(request.Name.ToLower()));
+            if (eventData != null)
+                return BadRequest(new ApiBadRequestResponse($"Event {request.Name} already existed!"));
+
+            eventData = new Event()
             {
                 Id = Guid.NewGuid().ToString(),
                 CreatorId = request.CreatorId,
@@ -60,7 +64,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 return NotFound(new ApiNotFoundResponse($"User with id {request.CreatorId} is not found"));
 
             //TODO: Upload cover image file
-            FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, FileContainer.EVENTS);
+            FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, $"{FileContainer.EVENTS}/{eventData.Id}");
             eventData.CoverImageId = coverImageFileStorage.Id;
 
             //TODO: Upload event sub image files
@@ -68,7 +72,7 @@ namespace EventHubSolution.BackendServer.Controllers
             {
                 foreach (var file in request.EventSubImages)
                 {
-                    FileStorageVm subImageVm = await _fileService.SaveFileToFileStorageAsync(file, FileContainer.EVENTS);
+                    FileStorageVm subImageVm = await _fileService.SaveFileToFileStorageAsync(file, $"{FileContainer.EVENTS}/{eventData.Id}");
                     var eventSubImage = new EventSubImage()
                     {
                         Id = Guid.NewGuid().ToString(),
@@ -95,7 +99,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 {
                     foreach (var attachment in request.EmailContent.Attachments)
                     {
-                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
+                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, $"{FileContainer.EVENTS}/{eventData.Id}");
                         var emailAttachment = new EmailAttachment()
                         {
                             AttachmentId = attachmentFileStorage.Id,
@@ -305,16 +309,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 _cacheService.SetData<IEnumerable<EventVm>>(CacheKey.EVENTS, eventVms, expiryTime);
             }
 
-            var metadata = new EventMetadata(
-                eventVms.Count(),
-                filter.page,
-                filter.size,
-                filter.takeAll,
-                eventVms.Count(e => !e.IsPrivate),
-                eventVms.Count(e => e.IsPrivate),
-                eventVms.Count(e => (bool)e.IsTrash)
-            );
-
             if (!filter.search.IsNullOrEmpty())
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -369,6 +363,15 @@ namespace EventHubSolution.BackendServer.Controllers
                 default:
                     break;
             }
+
+            var metadata = new EventMetadata(
+                eventVms.Count(),
+                filter.page,
+                filter.size,
+                filter.takeAll,
+                eventVms.Count(e => !e.IsPrivate),
+                eventVms.Count(e => e.IsPrivate),
+                eventVms.Count(e => (bool)e.IsTrash));
 
             if (filter.takeAll == false)
             {
@@ -528,6 +531,10 @@ namespace EventHubSolution.BackendServer.Controllers
             if (eventData == null || eventData.IsTrash == true)
                 return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
+            var sameNameEvent = await _db.Events.FirstOrDefaultAsync(e => e.Name.ToLower().Equals(request.Name.ToLower()) && e.Id != eventData.Id);
+            if (sameNameEvent != null)
+                return BadRequest(new ApiBadRequestResponse($"Event {request.Name} already existed!"));
+
             var user = await _userManager.FindByIdAsync(request.CreatorId);
             if (user == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {request.CreatorId} is not found"));
@@ -545,7 +552,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             //TODO: Update cover image
             await _fileService.DeleteFileByIdAsync(eventData.CoverImageId);
-            FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, FileContainer.EVENTS);
+            FileStorageVm coverImageFileStorage = await _fileService.SaveFileToFileStorageAsync(request.CoverImage, $"{FileContainer.EVENTS}/{eventData.Id}");
             eventData.CoverImageId = coverImageFileStorage.Id;
 
             //TODO: Update event sub images
@@ -557,7 +564,7 @@ namespace EventHubSolution.BackendServer.Controllers
             {
                 foreach (var file in request.EventSubImages)
                 {
-                    FileStorageVm subImageVm = await _fileService.SaveFileToFileStorageAsync(file, FileContainer.EVENTS);
+                    FileStorageVm subImageVm = await _fileService.SaveFileToFileStorageAsync(file, $"{FileContainer.EVENTS}/{eventData.Id}");
                     var eventSubImage = new EventSubImage()
                     {
                         Id = Guid.NewGuid().ToString(),
@@ -584,7 +591,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     //TODO: Update email attachments file
                     foreach (var attachment in request.EmailContent.Attachments)
                     {
-                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
+                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, $"{FileContainer.EVENTS}/{eventData.Id}");
                         var emailAttachment = new EmailAttachment()
                         {
                             AttachmentId = attachmentFileStorage.Id,
@@ -618,7 +625,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 {
                     foreach (var attachment in request.EmailContent.Attachments)
                     {
-                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, FileContainer.EVENTS);
+                        FileStorageVm attachmentFileStorage = await _fileService.SaveFileToFileStorageAsync(attachment, $"{FileContainer.EVENTS}/{eventData.Id}");
                         var emailAttachment = new EmailAttachment()
                         {
                             AttachmentId = attachmentFileStorage.Id,
@@ -688,7 +695,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return NoContent();
+                return Ok(new ApiOkResponse("Update event successfully!"));
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }

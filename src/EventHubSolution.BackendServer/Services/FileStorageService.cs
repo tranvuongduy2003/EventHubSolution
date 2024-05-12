@@ -29,7 +29,7 @@ namespace EventHubSolution.BackendServer.Services
         {
             var imageFile = await _fileService.UploadAsync(image, container);
 
-            var fileStorage = await _db.FileStorages.FirstOrDefaultAsync(f => f.FileName.Equals(imageFile.Blob.Name));
+            var fileStorage = await _db.FileStorages.FirstOrDefaultAsync(f => f.FileName.Equals(imageFile.Blob.Name) && f.FileContainer.Equals(container));
 
             var fileStorageVm = new FileStorageVm();
 
@@ -46,10 +46,6 @@ namespace EventHubSolution.BackendServer.Services
 
                 var addedFileStorage = await _db.FileStorages.AddAsync(fileStorage);
 
-                // Set expiry time
-                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
-                _cacheService.SetData<FileStorage>($"{CacheKey.FILE}{addedFileStorage.Entity.Id}", addedFileStorage.Entity, expiryTime);
-
                 await _db.SaveChangesAsync();
 
                 fileStorageVm = _mapper.Map<FileStorageVm>(fileStorage);
@@ -60,6 +56,10 @@ namespace EventHubSolution.BackendServer.Services
                 fileStorageVm = _mapper.Map<FileStorageVm>(fileStorage);
                 fileStorageVm.FilePath = imageFile.Blob.Uri;
             }
+
+            _cacheService.RemoveData(CacheKey.FILES);
+            _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.Id}");
+            _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.FileName}");
 
             return fileStorageVm;
         }
@@ -72,10 +72,12 @@ namespace EventHubSolution.BackendServer.Services
             if (cacheFileStorages != null && cacheFileStorages.Count() > 0)
                 fileStorages = cacheFileStorages.ToList();
             else
+            {
                 fileStorages = await _db.FileStorages.ToListAsync();
-            // Set expiry time
-            var expiryTime = DateTimeOffset.Now.AddMinutes(45);
-            _cacheService.SetData<IEnumerable<FileStorage>>(CacheKey.FILES, fileStorages, expiryTime);
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<IEnumerable<FileStorage>>(CacheKey.FILES, fileStorages, expiryTime);
+            }
 
             var fileStorageVms = await Task.WhenAll(fileStorages.AsParallel().Select(async file =>
             {
@@ -97,10 +99,12 @@ namespace EventHubSolution.BackendServer.Services
             if (cacheFileStorage != null)
                 fileStorage = cacheFileStorage;
             else
+            {
                 fileStorage = await _db.FileStorages.FindAsync(fileName);
-            // Set expiry time
-            var expiryTime = DateTimeOffset.Now.AddMinutes(45);
-            _cacheService.SetData<FileStorage>($"{CacheKey.FILE}{fileName}", fileStorage, expiryTime);
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<FileStorage>($"{CacheKey.FILE}{fileName}", fileStorage, expiryTime);
+            }
 
             if (fileStorage == null)
                 return null;
@@ -149,6 +153,7 @@ namespace EventHubSolution.BackendServer.Services
 
                 _db.FileStorages.Remove(fileStorage);
 
+                _cacheService.RemoveData(CacheKey.FILES);
                 _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.Id}");
                 _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.FileName}");
 
@@ -160,7 +165,7 @@ namespace EventHubSolution.BackendServer.Services
 
         public async Task<FileStorageVm> DeleteFileByIdAsync(string id)
         {
-            var fileStorage = await _db.FileStorages.FindAsync(id);
+            var fileStorage = await _db.FileStorages.FirstOrDefaultAsync(f => f.Id.Equals(id));
             var fileStorageVm = new FileStorageVm();
 
             if (fileStorage != null)
@@ -172,11 +177,13 @@ namespace EventHubSolution.BackendServer.Services
 
                 _db.FileStorages.Remove(fileStorage);
 
-                _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.Id}");
-                _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.FileName}");
 
                 await _db.SaveChangesAsync();
             }
+
+            _cacheService.RemoveData(CacheKey.FILES);
+            _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.Id}");
+            _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.FileName}");
 
             return fileStorageVm;
         }

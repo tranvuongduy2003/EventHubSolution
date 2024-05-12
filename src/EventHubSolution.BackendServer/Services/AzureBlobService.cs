@@ -135,7 +135,7 @@ namespace EventHubSolution.BackendServer.Services
         {
             BlobClient file = _filesContainer.GetBlobClient($"{fileContainer}/{blobFilename}");
 
-            await file.DeleteAsync();
+            await file.DeleteIfExistsAsync();
 
             return new BlobResponseVm { Error = false, Status = $"File: {blobFilename} has been successfully deleted" };
         }

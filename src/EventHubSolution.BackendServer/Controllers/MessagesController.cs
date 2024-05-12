@@ -1,5 +1,4 @@
-﻿using EventHubSolution.BackendServer.Authorization;
-using EventHubSolution.BackendServer.Data;
+﻿using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
@@ -30,7 +29,7 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet]
-        [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
+        //[ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
         public async Task<IActionResult> GetMessages([FromQuery] PaginationFilter filter)
         {
             var fileStorages = await _fileStorage.GetListFileStoragesAsync();

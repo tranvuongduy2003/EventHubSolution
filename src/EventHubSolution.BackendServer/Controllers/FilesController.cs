@@ -83,7 +83,7 @@ namespace EventHubSolution.BackendServer.Controllers
             if (file == null)
                 return NotFound();
 
-            var deletedFile = await _fileStorage.DeleteFileByFileNameAsync(id);
+            var deletedFile = await _fileStorage.DeleteFileByIdAsync(id);
 
             if (deletedFile == null)
                 return BadRequest();
