@@ -144,7 +144,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpPut("roles")]
         [ClaimRequirement(FunctionCode.SYSTEM_PERMISSION, CommandCode.UPDATE)]
-        public async Task<IActionResult> PutPermissionByCommand([FromBody] UpdatePermissionByRoleRequest request)
+        public async Task<IActionResult> PutPermissionByRole([FromBody] UpdatePermissionByRoleRequest request)
         {
             var function = await _db.Functions.FindAsync(request.FunctionId);
             if (function == null)
@@ -162,7 +162,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     return BadRequest(new ApiBadRequestResponse("Permission already exists!"));
                 permissions = await _db.CommandInFunctions.Where(cif => cif.FunctionId == request.FunctionId).Select(cif => new Permission(cif.FunctionId, request.RoleId, cif.CommandId)).ToListAsync();
 
-                await _db.AddRangeAsync(permissions);
+                await _db.Permissions.AddRangeAsync(permissions);
                 await _db.SaveChangesAsync();
             }
             else

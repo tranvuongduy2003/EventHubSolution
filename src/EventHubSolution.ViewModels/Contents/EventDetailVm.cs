@@ -38,6 +38,12 @@ namespace EventHubSolution.ViewModels.Contents
 
         public EmailContentVm EmailContent { get; set; }
 
+        public bool? IsFavourite { get; set; } = false;
+
+        public bool? IsPrivate { get; set; } = false;
+
+        public bool? IsTrash { get; set; } = false;
+
         public int? NumberOfFavourites { get; set; } = 0;
 
         public int? NumberOfShares { get; set; } = 0;

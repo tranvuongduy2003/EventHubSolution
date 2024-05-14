@@ -46,7 +46,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                                     FullName = userEntity.FullName
                                                 })
                               on message.UserId equals userItem.Id
-                              orderby message.UpdatedAt ascending
                               select new MessageVm
                               {
                                   Id = message.Id,
@@ -63,7 +62,6 @@ namespace EventHubSolution.BackendServer.Controllers
                               }).ToList();
 
 
-            var metadata = new Metadata(messageVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -76,6 +74,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => messageVms.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => messageVms
             };
+
+            var metadata = new Metadata(messageVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {

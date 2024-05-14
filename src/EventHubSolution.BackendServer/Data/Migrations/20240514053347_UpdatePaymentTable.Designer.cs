@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EventHubSolution.BackendServer.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20240509163959_ModifiedConversations")]
-    partial class ModifiedConversations
+    [Migration("20240514053347_UpdatePaymentTable")]
+    partial class UpdatePaymentTable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -56,7 +56,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("CategoryIds");
+                    b.ToTable("Categories");
                 });
 
             modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Command", b =>
@@ -154,7 +154,6 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasMaxLength(5000)
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EventId")
@@ -484,7 +483,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.Property<string>("Content")
                         .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("ConversationId")
                         .IsRequired()
@@ -550,14 +549,12 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("PaymentIntentId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("PaymentMethod")
+                    b.Property<int?>("PaymentMethod")
                         .HasColumnType("int");
 
-                    b.Property<string>("PaymentSession")
-                        .IsRequired()
+                    b.Property<string>("PaymentSessionId")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Status")
@@ -580,6 +577,53 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.PaymentItem", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<double>("Discount")
+                        .HasColumnType("float");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PaymentId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TicketTypeId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<long>("TotalPrice")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PaymentItems");
                 });
 
             modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Permission", b =>
@@ -617,7 +661,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.HasKey("Id");
 
@@ -699,6 +743,11 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<string>("TicketNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<string>("TicketTypeId")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -706,6 +755,11 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
 
@@ -754,13 +808,22 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("AccountId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("AvatarId")
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<string>("BankAccountId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Bio")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("CardId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
@@ -833,7 +896,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("FullName")
+                    b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 

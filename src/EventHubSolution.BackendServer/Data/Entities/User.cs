@@ -57,6 +57,12 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Range(0, Double.PositiveInfinity)]
         public int? NumberOfCreatedEvents { get; set; } = 0;
 
+        public string? CardId { get; set; }
+
+        public string? AccountId { get; set; }
+
+        public string? BankAccountId { get; set; }
+
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }

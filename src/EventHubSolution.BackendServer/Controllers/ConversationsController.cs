@@ -33,7 +33,7 @@ namespace EventHubSolution.BackendServer.Controllers
         {
             var fileStorages = await _fileStorage.GetListFileStoragesAsync();
             var conversationVms = (from conversation in _db.Conversations.ToList()
-                                   join eventItem in (from eventEntity in _db.Events.ToList()
+                                   join eventItem in (from eventEntity in _db.Events.Where(e => e.IsTrash == false).ToList()
                                                       join file in fileStorages
                                                       on eventEntity.CoverImageId equals file.Id
                                                       into joinedEvents
@@ -61,7 +61,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                    on conversation.LastMessageId equals message.Id
                                    into joinedMessageConversations
                                    from joinedMessage in joinedMessageConversations.DefaultIfEmpty()
-                                   orderby conversation.UpdatedAt ascending
                                    select new ConversationVm
                                    {
                                        Id = conversation.Id,
@@ -87,7 +86,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                        UpdatedAt = conversation.UpdatedAt
                                    }).ToList();
 
-            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -106,6 +104,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 conversationVms = conversationVms.Skip((filter.page - 1) * filter.size)
                     .Take(filter.size).ToList();
             }
+
+            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
 
             var pagination = new Pagination<ConversationVm>
             {
@@ -137,7 +137,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                                 })
                               on message.UserId equals userItem.Id
                               where message.ConversationId == conversationId
-                              orderby message.UpdatedAt ascending
                               select new MessageVm
                               {
                                   Id = message.Id,
@@ -154,7 +153,6 @@ namespace EventHubSolution.BackendServer.Controllers
                               }).ToList();
 
 
-            var metadata = new Metadata(messageVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -167,6 +165,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => messageVms.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => messageVms
             };
+
+            var metadata = new Metadata(messageVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {

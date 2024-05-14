@@ -4,7 +4,6 @@
     {
         ALL,
         PUBLIC,
-        PRIVATE,
-        TRASH
+        PRIVATE
     }
 }

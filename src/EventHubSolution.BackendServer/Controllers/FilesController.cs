@@ -33,8 +33,6 @@ namespace EventHubSolution.BackendServer.Controllers
         {
             var fileStorages = await _fileStorage.GetListFileStoragesAsync();
 
-            var metadata = new Metadata(fileStorages.Count(), filter.page, filter.size, filter.takeAll);
-
             if (filter.search != null)
             {
                 fileStorages = fileStorages.Where(c => c.FileName.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -46,6 +44,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => fileStorages.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => fileStorages
             };
+
+            var metadata = new Metadata(fileStorages.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {

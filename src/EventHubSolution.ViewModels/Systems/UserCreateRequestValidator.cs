@@ -6,7 +6,7 @@ namespace EventHubSolution.ViewModels.Systems
     {
         public UserCreateRequestValidator()
         {
-            RuleFor(x => x.UserName).NotEmpty().WithMessage("User name is required");
+            //RuleFor(x => x.FullName).NotEmpty().WithMessage("User name is required");
 
             RuleFor(x => x.Password).NotEmpty().WithMessage("Password is required")
                 .MinimumLength(8).WithMessage("Password has to atleast 8 characters")
@@ -18,8 +18,8 @@ namespace EventHubSolution.ViewModels.Systems
 
             RuleFor(x => x.PhoneNumber).NotEmpty().WithMessage("Phone number is required");
 
-            //RuleFor(x => x.FullName).NotEmpty().WithMessage("Full name is required")
-            //    .MaximumLength(50).WithMessage("Full name cannot over 50 characters limit");
+            RuleFor(x => x.FullName).NotEmpty().WithMessage("Full name is required")
+                .MaximumLength(50).WithMessage("Full name cannot over 50 characters limit");
 
             RuleFor(x => x.Bio)
                 .MaximumLength(1000)

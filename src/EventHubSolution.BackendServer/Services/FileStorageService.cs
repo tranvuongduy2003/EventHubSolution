@@ -179,11 +179,12 @@ namespace EventHubSolution.BackendServer.Services
 
 
                 await _db.SaveChangesAsync();
+
+                _cacheService.RemoveData(CacheKey.FILES);
+                _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.Id}");
+                _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.FileName}");
             }
 
-            _cacheService.RemoveData(CacheKey.FILES);
-            _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.Id}");
-            _cacheService.RemoveData($"{CacheKey.FILE}{fileStorage.FileName}");
 
             return fileStorageVm;
         }

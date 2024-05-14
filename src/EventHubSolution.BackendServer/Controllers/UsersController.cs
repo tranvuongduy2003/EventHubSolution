@@ -7,6 +7,7 @@ using EventHubSolution.BackendServer.Services.Interfaces;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.General;
+using EventHubSolution.ViewModels.Stripe;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Extensions;
 using Newtonsoft.Json;
+using Stripe;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
@@ -26,15 +28,17 @@ namespace EventHubSolution.BackendServer.Controllers
         private readonly ApplicationDbContext _db;
         private readonly IFileStorageService _fileService;
         private readonly ICacheService _cacheService;
+        private readonly StripeService _stripeService;
 
         public UsersController(UserManager<User> userManager, RoleManager<IdentityRole> roleManager,
-            ApplicationDbContext db, IFileStorageService fileService, ICacheService cacheService)
+            ApplicationDbContext db, IFileStorageService fileService, ICacheService cacheService, StripeService stripeService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _db = db;
             _fileService = fileService;
             _cacheService = cacheService;
+            _stripeService = stripeService;
         }
 
         #region Users
@@ -94,6 +98,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
                 var expiryTime = DateTimeOffset.Now.AddMinutes(45);
                 _cacheService.SetData<UserVm>($"{CacheKey.USER}{userVm.Id}", userVm, expiryTime);
+                _cacheService.RemoveData(CacheKey.USERS);
 
                 return CreatedAtAction(nameof(PostUser), userVm, request);
             }
@@ -144,8 +149,6 @@ namespace EventHubSolution.BackendServer.Controllers
                            }).ToList();
             }
 
-            var metadata = new Metadata(userVms.Count(), filter.page, filter.size, filter.takeAll);
-
             if (!filter.search.IsNullOrEmpty())
             {
                 userVms = userVms.Where(u =>
@@ -160,6 +163,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => userVms.OrderByDescending(u => u.CreatedAt).ToList(),
                 _ => userVms
             };
+
+            var metadata = new Metadata(userVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
@@ -277,6 +282,7 @@ namespace EventHubSolution.BackendServer.Controllers
             {
                 var expiryTime = DateTimeOffset.Now.AddMinutes(45);
                 _cacheService.SetData<UserVm>($"{CacheKey.USER}{userVm.Id}", userVm, expiryTime);
+                _cacheService.RemoveData(CacheKey.USERS);
 
                 return Ok(userVm);
             }
@@ -311,7 +317,13 @@ namespace EventHubSolution.BackendServer.Controllers
             if (user == null)
                 return NotFound(new ApiNotFoundResponse(""));
 
+            await _fileService.DeleteFileByIdAsync(user.AvatarId);
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            await _userManager.RemoveFromRolesAsync(user, userRoles);
+
             var result = await _userManager.DeleteAsync(user);
+            await _db.SaveChangesAsync();
 
             if (result.Succeeded)
             {
@@ -335,6 +347,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 };
 
                 _cacheService.RemoveData($"{CacheKey.USER}{userVm.Id}");
+                _cacheService.RemoveData(CacheKey.USERS);
 
                 return Ok(new ApiOkResponse(userVm));
             }
@@ -386,24 +399,66 @@ namespace EventHubSolution.BackendServer.Controllers
                 reviewVms = cacheReviewVms.ToList();
             else
             {
-                var userAvatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
-                reviewVms = _db.Reviews.Where(r => r.UserId == userId).ToList().Join(_db.Events, _review => _review.EventId, _event => _event.Id,
-                    (_review, _event) => new ReviewVm
-                    {
-                        Id = _review.Id,
-                        EventId = _review.EventId,
-                        EventName = _event.Name,
-                        UserId = _review.UserId,
-                        UserAvatar = userAvatar?.FilePath,
-                        UserName = user?.FullName,
-                        Content = _review.Content,
-                        Rate = _review.Rate,
-                        CreatedAt = _review.CreatedAt,
-                        UpdatedAt = _review.UpdatedAt,
-                    }).ToList();
+                var fileStorages = await _fileService.GetListFileStoragesAsync();
+
+                var users = (from _user in _userManager.Users.ToList()
+                             join _fileStorage in fileStorages
+                             on _user.AvatarId equals _fileStorage.Id
+                             into joinedUsers
+                             from _joinedUser in joinedUsers.DefaultIfEmpty()
+                             select new UserVm
+                             {
+                                 Id = _user.Id,
+                                 Email = _user.Email,
+                                 FullName = _user.FullName,
+                                 Avatar = _joinedUser != null && _joinedUser.FilePath != null ? _joinedUser.FilePath : null,
+                             });
+
+                var events = (from _event in _db.Events.ToList()
+                              join _fileStorage in fileStorages
+                              on _event.CoverImageId equals _fileStorage.Id
+                              into joinedEvents
+                              from _joinedEvent in joinedEvents.DefaultIfEmpty()
+                              select new EventVm
+                              {
+                                  Id = _event.Id,
+                                  Name = _event.Name,
+                                  CoverImage = _joinedEvent != null && _joinedEvent.FilePath != null ? _joinedEvent.FilePath : null,
+                              });
+
+                reviewVms = (from _review in _db.Reviews.ToList()
+                             join _event in events on _review.EventId equals _event.Id
+                             join _user in users on _review.UserId equals _user.Id
+                             select new ReviewVm
+                             {
+                                 Id = _review.Id,
+                                 EventId = _review.EventId,
+                                 EventName = _event.Name,
+                                 EventCoverImage = _event.CoverImage,
+                                 UserId = _review.UserId,
+                                 UserAvatar = _user.Avatar,
+                                 Email = _user.Email,
+                                 FullName = _user.FullName,
+                                 Content = _review.Content,
+                                 Rate = _review.Rate,
+                                 CreatedAt = _review.CreatedAt,
+                                 UpdatedAt = _review.UpdatedAt,
+                             }).ToList();
+
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<IEnumerable<ReviewVm>>(CacheKey.REVIEWS, reviewVms, expiryTime);
             }
 
-            var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
+            reviewVms = reviewVms
+                .Join(_db.Events.ToList(),
+                    _review => _review.EventId,
+                    _event => _event.Id,
+                    (_review, _event) => new { _review, _event })
+                .Where(_joinedReview => _joinedReview._event.CreatorId == user.Id && _joinedReview._event.IsTrash == false)
+                .Select(_joinedReview => _joinedReview._review)
+                .ToList();
+
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -416,6 +471,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => reviewVms.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => reviewVms
             };
+
+            var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
@@ -478,7 +535,7 @@ namespace EventHubSolution.BackendServer.Controllers
                         _favouriteEvent,
                         _event
                     })
-                .Where(joinedEvent => joinedEvent._favouriteEvent.UserId == userId)
+                .Where(joinedEvent => joinedEvent._favouriteEvent.UserId == userId && joinedEvent._event.IsTrash == false)
                 .Select(joinedEvent => joinedEvent._event)
                 .ToList();
 
@@ -570,16 +627,6 @@ namespace EventHubSolution.BackendServer.Controllers
                 .DistinctBy(e => e.Id)
                 .ToList();
 
-            var metadata = new EventMetadata(
-                eventVms.Count(),
-                filter.page,
-                filter.size,
-                filter.takeAll,
-                eventVms.Count(e => !e.IsPrivate),
-                eventVms.Count(e => e.IsPrivate),
-                eventVms.Count(e => (bool)e.IsTrash)
-            );
-
             if (!filter.search.IsNullOrEmpty())
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -623,6 +670,15 @@ namespace EventHubSolution.BackendServer.Controllers
                     filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
             }
 
+            var metadata = new EventMetadata(
+               eventVms.Count(),
+               filter.page,
+               filter.size,
+               filter.takeAll,
+               eventVms.Count(e => !e.IsPrivate),
+               eventVms.Count(e => e.IsPrivate)
+           );
+
             switch (filter.eventPrivacy)
             {
                 case EventPrivacy.PUBLIC:
@@ -630,9 +686,6 @@ namespace EventHubSolution.BackendServer.Controllers
                     break;
                 case EventPrivacy.PRIVATE:
                     eventVms = eventVms.Where(c => c.IsPrivate).ToList();
-                    break;
-                case EventPrivacy.TRASH:
-                    eventVms = eventVms.Where(c => c.IsTrash).ToList();
                     break;
                 default:
                     break;
@@ -689,7 +742,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                        CategoryVm = _joinedEventCategory,
                                    }).ToList();
 
-            var joinedEventVms = (from _event in _db.Events.Where(e => e.CreatorId.Equals(userId)).ToList()
+            var joinedEventVms = (from _event in _db.Events.Where(e => e.CreatorId.Equals(userId) && e.IsTrash == false).ToList()
                                   join _fileStorage in fileStorages
                                   on _event.CoverImageId equals _fileStorage.Id
                                   into joinedCoverImageEvents
@@ -777,6 +830,48 @@ namespace EventHubSolution.BackendServer.Controllers
                                 .DistinctBy(e => e.Id)
                                 .ToList();
 
+            if (!filter.search.IsNullOrEmpty())
+            {
+                eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            eventVms = filter.order switch
+            {
+                PageOrder.ASC => eventVms.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => eventVms.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => eventVms
+            };
+
+            switch (filter.type)
+            {
+                case EventType.OPENING:
+                    eventVms = eventVms.Where(e => e.StartTime <= DateTime.UtcNow && DateTime.UtcNow <= e.EndTime)
+                        .ToList();
+                    break;
+                case EventType.UPCOMING:
+                    eventVms = eventVms.Where(e => DateTime.UtcNow < e.StartTime).ToList();
+                    break;
+                case EventType.CLOSED:
+                    eventVms = eventVms.Where(e => e.EndTime < DateTime.UtcNow).ToList();
+                    break;
+            }
+
+            if (!filter.location.IsNullOrEmpty())
+            {
+                eventVms = eventVms.Where(e => e.Location.ToLower().Contains(filter.location.ToLower())).ToList();
+            }
+
+            if (filter.categoryIds != null && filter.categoryIds.Count > 0)
+            {
+                eventVms = eventVms.Where(e => e.Categories.Exists(c => filter.categoryIds.Contains(c.Id))).ToList();
+            }
+
+            if (filter.priceRange != null)
+            {
+                eventVms = eventVms.Where(e =>
+                    filter.priceRange.StartRange <= e.PriceRange.StartRange &&
+                    filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
+            }
 
             var metadata = new EventMetadata(
                 eventVms.Count(),
@@ -784,9 +879,159 @@ namespace EventHubSolution.BackendServer.Controllers
                 filter.size,
                 filter.takeAll,
                 eventVms.Count(e => !e.IsPrivate),
-                eventVms.Count(e => e.IsPrivate),
-                eventVms.Count(e => (bool)e.IsTrash)
+                eventVms.Count(e => e.IsPrivate)
             );
+
+            switch (filter.eventPrivacy)
+            {
+                case EventPrivacy.PUBLIC:
+                    eventVms = eventVms.Where(c => !c.IsPrivate).ToList();
+                    break;
+                case EventPrivacy.PRIVATE:
+                    eventVms = eventVms.Where(c => c.IsPrivate).ToList();
+                    break;
+                default:
+                    break;
+            }
+
+            if (filter.takeAll == false)
+            {
+                eventVms = eventVms.Skip((filter.page - 1) * filter.size).Take(filter.size).ToList();
+            }
+
+            var pagination = new Pagination<EventVm, EventMetadata>
+            {
+                Items = eventVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
+
+        [HttpGet("{userId}/events/trash")]
+        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.VIEW)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> GetTrashEventsByUserId(string userId,
+            [FromQuery] EventPaginationFilter filter)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} is not existed."));
+
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
+
+            var eventCategories = (from _eventCategory in _db.EventCategories.ToList()
+                                   join _categoryVm in (from _category in _db.Categories.ToList()
+                                                        join _fileStorage in fileStorages
+                                                        on _category.IconImageId equals _fileStorage.Id
+                                                        into joinedCategories
+                                                        from _joinedCategory in joinedCategories.DefaultIfEmpty()
+                                                        select new CategoryVm
+                                                        {
+                                                            Id = _category.Id,
+                                                            Color = _category.Color,
+                                                            IconImage = _joinedCategory != null ? _joinedCategory.FilePath : "",
+                                                            Name = _category.Name
+                                                        })
+                                   on _eventCategory.CategoryId equals _categoryVm.Id
+                                   into joinedEventCategories
+                                   from _joinedEventCategory in joinedEventCategories.DefaultIfEmpty()
+                                   select new
+                                   {
+                                       EventId = _eventCategory.EventId,
+                                       CategoryId = _eventCategory.CategoryId,
+                                       CategoryVm = _joinedEventCategory,
+                                   }).ToList();
+
+            var joinedEventVms = (from _event in _db.Events.Where(e => e.CreatorId.Equals(userId) && e.IsTrash == true).ToList()
+                                  join _fileStorage in fileStorages
+                                  on _event.CoverImageId equals _fileStorage.Id
+                                  into joinedCoverImageEvents
+                                  from _joinedCoverImageEvent in joinedCoverImageEvents.DefaultIfEmpty()
+                                  join _user in (from u in _userManager.Users.ToList()
+                                                 join f in fileStorages
+                                                     on u.AvatarId equals f.Id
+                                                     into UsersWithAvatar
+                                                 from uwa in UsersWithAvatar.DefaultIfEmpty()
+                                                 select new
+                                                 {
+                                                     Id = u.Id,
+                                                     FullName = u.FullName,
+                                                     Avatar = uwa?.FilePath,
+                                                 })
+                                  on _event.CreatorId equals _user.Id
+                                  into joinedCreatorEvents
+                                  from _joinedCreatorEvent in joinedCreatorEvents.DefaultIfEmpty()
+                                  select new EventVm
+                                  {
+                                      Id = _event.Id,
+                                      Name = _event.Name,
+                                      CreatorName = _joinedCreatorEvent?.FullName,
+                                      CreatorAvatar = _joinedCreatorEvent?.Avatar,
+                                      Description = _event.Description,
+                                      CoverImage = _joinedCoverImageEvent?.FilePath ?? "",
+                                      StartTime = _event.StartTime,
+                                      EndTime = _event.EndTime,
+                                      Promotion = _event.Promotion ?? 0.0,
+                                      Status = _event.StartTime > DateTime.UtcNow ? EventStatus.UPCOMING : _event.EndTime < DateTime.UtcNow ? EventStatus.CLOSED : EventStatus.OPENING,
+                                      IsPrivate = _event.IsPrivate,
+                                      IsTrash = (bool)(_event.IsTrash != null ? _event.IsTrash : false),
+                                      EventPaymentType = _event.EventPaymentType,
+                                      EventCycleType = _event.EventCycleType,
+                                      Location = _event.Location,
+                                      CreatedAt = _event.CreatedAt,
+                                      UpdatedAt = _event.UpdatedAt
+                                  }).ToList();
+
+            var joinedTicketTypeEventVms = (from _eventVm in joinedEventVms
+                                            join _ticketType in _db.TicketTypes.ToList()
+                                            on _eventVm.Id equals _ticketType.EventId
+                                            into joinedTicketTypeEvents
+                                            from _joinedTicketTypeEvent in joinedTicketTypeEvents.DefaultIfEmpty()
+                                            select new
+                                            {
+                                                _eventVm,
+                                                _joinedTicketTypeEvent
+                                            })
+                                .GroupBy(joinedTicketTypeEvent => joinedTicketTypeEvent._eventVm)
+                                .AsEnumerable()
+                                .Select(groupedEventVm =>
+                                {
+                                    EventVm eventVm = groupedEventVm.Key;
+                                    eventVm.PriceRange = new PriceRangeVm
+                                    {
+                                        StartRange = groupedEventVm.Min(e => e._joinedTicketTypeEvent != null ? e._joinedTicketTypeEvent.Price : 1000000000),
+                                        EndRange = groupedEventVm.Max(e => e._joinedTicketTypeEvent != null ? e._joinedTicketTypeEvent.Price : 0)
+                                    };
+                                    return eventVm;
+                                })
+                                .DistinctBy(e => e.Id)
+                                .ToList();
+
+            var eventVms = (from _eventVm in joinedTicketTypeEventVms
+                            join _eventCategory in eventCategories
+                            on _eventVm.Id equals _eventCategory.EventId
+                            into joinedCategoryEvents
+                            from _joinedCategoryEvent in joinedCategoryEvents.DefaultIfEmpty()
+                            select new
+                            {
+                                _eventVm,
+                                _joinedCategoryEvent
+                            })
+                                .GroupBy(joinedEvent => joinedEvent._eventVm)
+                                .Select(groupedEvent =>
+                                {
+                                    var eventVm = groupedEvent.Key;
+                                    eventVm.Categories = groupedEvent
+                                                            .Where(e => e._joinedCategoryEvent?.CategoryVm != null)
+                                                            .Select(e => e._joinedCategoryEvent.CategoryVm)
+                                                            .ToList();
+                                    return eventVm;
+                                })
+                                .DistinctBy(e => e.Id)
+                                .ToList();
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -831,6 +1076,15 @@ namespace EventHubSolution.BackendServer.Controllers
                     filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
             }
 
+            var metadata = new EventMetadata(
+                eventVms.Count(),
+                filter.page,
+                filter.size,
+                filter.takeAll,
+                eventVms.Count(e => !e.IsPrivate),
+                eventVms.Count(e => e.IsPrivate)
+            );
+
             switch (filter.eventPrivacy)
             {
                 case EventPrivacy.PUBLIC:
@@ -838,9 +1092,6 @@ namespace EventHubSolution.BackendServer.Controllers
                     break;
                 case EventPrivacy.PRIVATE:
                     eventVms = eventVms.Where(c => c.IsPrivate).ToList();
-                    break;
-                case EventPrivacy.TRASH:
-                    eventVms = eventVms.Where(c => c.IsTrash).ToList();
                     break;
                 default:
                     break;
@@ -868,7 +1119,7 @@ namespace EventHubSolution.BackendServer.Controllers
         {
             var fileStorages = await _fileService.GetListFileStoragesAsync();
             var conversationVms = (from conversation in _db.Conversations.ToList()
-                                   join eventItem in (from eventEntity in _db.Events.ToList()
+                                   join eventItem in (from eventEntity in _db.Events.Where(e => e.IsTrash == false).ToList()
                                                       join file in fileStorages
                                                       on eventEntity.CoverImageId equals file.Id
                                                       into joinedEvents
@@ -897,7 +1148,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                    into joinedMessageConversations
                                    from joinedMessage in joinedMessageConversations.DefaultIfEmpty()
                                    where conversation.UserId == userId
-                                   orderby conversation.UpdatedAt ascending
                                    select new ConversationVm
                                    {
                                        Id = conversation.Id,
@@ -923,7 +1173,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                        UpdatedAt = conversation.UpdatedAt
                                    }).ToList();
 
-            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -936,6 +1185,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => conversationVms.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => conversationVms
             };
+
+            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
@@ -961,7 +1212,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var fileStorages = await _fileService.GetListFileStoragesAsync();
             var conversationVms = (from conversation in _db.Conversations.ToList()
-                                   join eventItem in (from eventEntity in _db.Events.ToList()
+                                   join eventItem in (from eventEntity in _db.Events.Where(e => e.IsTrash == false).ToList()
                                                       join file in fileStorages
                                                       on eventEntity.CoverImageId equals file.Id
                                                       into joinedEvents
@@ -990,7 +1241,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                    into joinedMessageConversations
                                    from joinedMessage in joinedMessageConversations.DefaultIfEmpty()
                                    where conversation.HostId == hostId
-                                   orderby conversation.UpdatedAt ascending
                                    select new ConversationVm
                                    {
                                        Id = conversation.Id,
@@ -1016,7 +1266,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                        UpdatedAt = conversation.UpdatedAt
                                    }).ToList();
 
-            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -1029,6 +1278,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => conversationVms.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => conversationVms
             };
+
+            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
@@ -1124,6 +1375,248 @@ namespace EventHubSolution.BackendServer.Controllers
             }
         }
 
+        #endregion
+
+        #region Payments
+        [HttpGet("{userId}/payments")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetPaymentsByUserId(string userId, [FromQuery] PaymentPaginationFilter filter)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+
+            var payments = _db.Payments.Where(p => p.UserId.Equals(userId)).ToList();
+
+            if (filter.search != null)
+            {
+                payments = payments.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
+                                               c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
+                                               c.CustomerPhone.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            payments = filter.order switch
+            {
+                PageOrder.ASC => payments.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => payments.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => payments
+            };
+
+            payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
+
+            var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.takeAll == false)
+            {
+                payments = payments.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var paymentVms = payments.Select(p => new PaymentVm()
+            {
+                Id = p.Id,
+                CustomerName = p.CustomerName,
+                CustomerEmail = p.CustomerEmail,
+                CustomerPhone = p.CustomerPhone,
+                Discount = p.Discount,
+                Status = p.Status,
+                EventId = p.EventId,
+                PaymentMethod = (ViewModels.Constants.PaymentMethod)p.PaymentMethod,
+                PaymentSessionId = p.PaymentSessionId,
+                TicketQuantity = p.TicketQuantity,
+                TotalPrice = p.TotalPrice,
+                UserId = p.UserId,
+                PaymentIntentId = p.PaymentIntentId,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt
+            }).ToList();
+
+            var pagination = new Pagination<PaymentVm>
+            {
+                Items = paymentVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
+        #endregion
+
+        #region Stripe
+        [HttpPost("{userId}/stripe/create-account")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
+        public async Task<IActionResult> PostCreateStripeAccount(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+
+            var account = await _stripeService.CreateStripeAccount(user);
+
+            user.AccountId = account.Id;
+            await _userManager.UpdateAsync(user);
+            await _db.SaveChangesAsync();
+
+            return Ok(new ApiOkResponse($"Create Stripe account for user {user.Id} successfully!"));
+        }
+
+        [HttpPost("{userId}/stripe/create-bank-account")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
+        public async Task<IActionResult> PostCreateStripeBankAccount(string userId, CreateBankAccountRequest request)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+
+            var account = await _stripeService.GetAccount(user.AccountId);
+            if (account == null)
+                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe account yet!"));
+
+
+            var createExternalBankAccountRequest = new CreateExternalBankAccountRequest
+            {
+                AccountId = user.AccountId,
+                BankAccountOptions = new AccountBankAccountOptions
+                {
+                    AccountHolderName = request.AccountHolderName,
+                    AccountNumber = request.AccountNumber,
+                    Currency = "usd",
+                    Country = account.Country,
+                    AccountHolderType = BankAccountHolderType.Individual,
+                    RoutingNumber = "110000000",
+
+                }
+            };
+
+            var externalBankAccount =
+                await _stripeService.CreateStripeExternalBankAccount(createExternalBankAccountRequest);
+
+            user.BankAccountId = externalBankAccount.Id;
+            await _userManager.UpdateAsync(user);
+            await _db.SaveChangesAsync();
+
+            return Ok(new ApiOkResponse($"Create Stripe extenal bank account for user {user.Id} successfully!"));
+        }
+
+        [HttpPost("{userId}/stripe/create-bank-card")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
+        public async Task<IActionResult> PostCreateStripeBankCard(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+
+            var account = await _stripeService.GetAccount(user.AccountId);
+            if (account == null)
+                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe account yet!"));
+
+            var bankCard = await _stripeService.CreateStripeCard(account.Id);
+
+            user.CardId = bankCard.Id;
+            await _userManager.UpdateAsync(user);
+            await _db.SaveChangesAsync();
+
+            return Ok(new ApiOkResponse(bankCard));
+        }
+
+        [HttpGet("{userId}/stripe/bank-account")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetStripeBankAccount(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+
+            var account = await _stripeService.GetAccount(user.AccountId);
+            if (account == null)
+                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe account yet!"));
+
+            var bankAccount = await _stripeService.GetExternalAccount(user.AccountId, user.BankAccountId);
+            if (bankAccount == null)
+                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe bank account yet!"));
+
+            return Ok(new ApiOkResponse(bankAccount));
+        }
+
+        [HttpGet("{userId}/stripe/bank-card")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetStripeBankCard(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+
+            var account = await _stripeService.GetAccount(user.AccountId);
+            if (account == null)
+                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe account yet!"));
+
+            var card = await _stripeService.GetBankCard(user.AccountId, user.CardId);
+            if (card == null)
+                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe bank card yet!"));
+
+            return Ok(new ApiOkResponse(card));
+        }
+        #endregion
+
+        #region Tickets
+        [HttpGet("{userId}/tickets")]
+        [ClaimRequirement(FunctionCode.CONTENT_TICKET, CommandCode.VIEW)]
+        public async Task<IActionResult> GetTicketsByUserId(string userId, [FromQuery] PaginationFilter filter)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+
+            var tickets = _db.Tickets.Where(t => t.UserId == userId).ToList();
+
+            if (!filter.search.IsNullOrEmpty())
+            {
+                tickets = tickets.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
+                                             c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
+                                             c.CustomerPhone.ToLower().Contains(filter.search.ToLower())
+                ).ToList();
+            }
+
+            tickets = filter.order switch
+            {
+                PageOrder.ASC => tickets.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => tickets.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => tickets
+            };
+
+            var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.takeAll == false)
+            {
+                tickets = tickets.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var ticketVms = tickets.Select(t => new TicketVm()
+            {
+                Id = t.Id,
+                EventId = t.EventId,
+                CustomerName = t.CustomerName,
+                CustomerPhone = t.CustomerPhone,
+                CustomerEmail = t.CustomerEmail,
+                Status = t.Status,
+                PaymentId = t.PaymentId,
+                TicketTypeId = t.TicketTypeId,
+                CreatedAt = t.CreatedAt,
+                UpdatedAt = t.UpdatedAt
+            }).ToList();
+
+            var pagination = new Pagination<TicketVm>
+            {
+                Items = ticketVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
         #endregion
     }
 }

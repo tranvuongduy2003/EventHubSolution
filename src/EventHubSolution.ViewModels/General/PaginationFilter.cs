@@ -57,7 +57,7 @@ namespace EventHubSolution.ViewModels.General
             }
             set
             {
-                _order = value != PageOrder.ASC || value != PageOrder.DESC ? PageOrder.ASC : value;
+                _order = value;
             }
         }
 

@@ -56,6 +56,7 @@ namespace EventHubSolution.BackendServer.Data
             builder.Entity<Reason>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<Conversation>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
             builder.Entity<Message>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
+            builder.Entity<PaymentItem>().Property(x => x.Id).HasMaxLength(50).IsUnicode(false);
         }
 
         public DbSet<User> Users { set; get; }
@@ -84,5 +85,6 @@ namespace EventHubSolution.BackendServer.Data
         public DbSet<Invitation> Invitations { set; get; }
         public DbSet<Conversation> Conversations { get; set; }
         public DbSet<Message> Messages { get; set; }
+        public DbSet<PaymentItem> PaymentItems { get; set; }
     }
 }

@@ -144,23 +144,25 @@ namespace EventHubSolution.BackendServer.Data
             {
                 _context.Functions.AddRange(new List<Function>
                 {
-                    new Function { Id = FunctionCode.DASHBOARD.GetDisplayName(), Name = "Thống kê", ParentId = null, SortOrder = 1, Url = "/dashboard" },
+                    new Function { Id = FunctionCode.DASHBOARD.GetDisplayName(), Name = "Dashboard", ParentId = null, SortOrder = 0, Url = "/dashboard" },
 
-                    new Function { Id = FunctionCode.CONTENT.GetDisplayName(),Name = "Nội dung", ParentId = null, Url = "/content" },
+                    new Function { Id = FunctionCode.CONTENT.GetDisplayName(),Name = "Contents", ParentId = null, SortOrder = 0, Url = "/content" },
 
-                    new Function { Id = FunctionCode.CONTENT_CATEGORY.GetDisplayName(), Name = "Danh mục", ParentId = FunctionCode.CONTENT.GetDisplayName(), Url = "/content/category"  },
-                    new Function { Id = FunctionCode.CONTENT_EVENT.GetDisplayName(), Name = "Sự kiện", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 2, Url = "/content/event" },
-                    new Function { Id = FunctionCode.CONTENT_REVIEW.GetDisplayName(), Name = "Đánh giá", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 3, Url = "/content/review" },
-                    new Function { Id = FunctionCode.CONTENT_TICKET.GetDisplayName(), Name = "Vé", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 3, Url = "/content/ticket" },
-                    new Function { Id = FunctionCode.CONTENT_CHAT.GetDisplayName(), Name = "Hội thoại", ParentId = FunctionCode.CONTENT.GetDisplayName(), Url = "/content/chat" },
+                    new Function { Id = FunctionCode.CONTENT_CATEGORY.GetDisplayName(), Name = "Categories", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 1, Url = "/content/category"  },
+                    new Function { Id = FunctionCode.CONTENT_EVENT.GetDisplayName(), Name = "Events", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 1, Url = "/content/event" },
+                    new Function { Id = FunctionCode.CONTENT_REVIEW.GetDisplayName(), Name = "Reviews", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 2, Url = "/content/review" },
+                    new Function { Id = FunctionCode.CONTENT_TICKET.GetDisplayName(), Name = "Tickets", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 2, Url = "/content/ticket" },
+                    new Function { Id = FunctionCode.CONTENT_CHAT.GetDisplayName(), Name = "Chats", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 2, Url = "/content/chat" },
+                    new Function { Id = FunctionCode.CONTENT_PAYMENT.GetDisplayName(), Name = "Payments", ParentId = FunctionCode.CONTENT.GetDisplayName(), SortOrder = 2, Url = "/content/payment" },
 
-                    new Function { Id = FunctionCode.STATISTIC.GetDisplayName(), Name = "Thống kê", ParentId = null, Url = "/statistic" },
-                    new Function { Id = FunctionCode.SYSTEM.GetDisplayName(), Name = "Hệ thống", ParentId = null, Url = "/system" },
+                    new Function { Id = FunctionCode.STATISTIC.GetDisplayName(), Name = "Statistics", ParentId = null, SortOrder = 0, Url = "/statistic" },
 
-                    new Function { Id = FunctionCode.SYSTEM_USER.GetDisplayName(), Name = "Người dùng", ParentId = FunctionCode.SYSTEM.GetDisplayName(), Url = "/system/user" },
-                    new Function { Id = FunctionCode.SYSTEM_ROLE.GetDisplayName(), Name = "Nhóm quyền", ParentId = FunctionCode.SYSTEM.GetDisplayName(), Url = "/system/role" },
-                    new Function { Id = FunctionCode.SYSTEM_FUNCTION.GetDisplayName(), Name = "Chức năng", ParentId = FunctionCode.SYSTEM.GetDisplayName(), Url = "/system/function" },
-                    new Function { Id = FunctionCode.SYSTEM_PERMISSION.GetDisplayName(), Name = "Quyền hạn", ParentId = FunctionCode.SYSTEM.GetDisplayName(), Url = "/system/permission" },
+                    new Function { Id = FunctionCode.SYSTEM.GetDisplayName(), Name = "System", ParentId = null, SortOrder = 0, Url = "/system" },
+
+                    new Function { Id = FunctionCode.SYSTEM_USER.GetDisplayName(), Name = "Users", ParentId = FunctionCode.SYSTEM.GetDisplayName(), SortOrder = 1, Url = "/system/user" },
+                    new Function { Id = FunctionCode.SYSTEM_ROLE.GetDisplayName(), Name = "Roles", ParentId = FunctionCode.SYSTEM.GetDisplayName(), SortOrder = 1, Url = "/system/role" },
+                    new Function { Id = FunctionCode.SYSTEM_FUNCTION.GetDisplayName(), Name = "Functions", ParentId = FunctionCode.SYSTEM.GetDisplayName(), SortOrder = 1, Url = "/system/function" },
+                    new Function { Id = FunctionCode.SYSTEM_PERMISSION.GetDisplayName(), Name = "Permissions", ParentId = FunctionCode.SYSTEM.GetDisplayName(), SortOrder = 1,Url = "/system/permission" },
 
                 });
 
@@ -174,11 +176,11 @@ namespace EventHubSolution.BackendServer.Data
             {
                 _context.Commands.AddRange(new List<Command>()
                 {
-                    new Command() { Id = "VIEW", Name = "Xem" },
-                    new Command() { Id = "CREATE", Name = "Thêm" },
-                    new Command() { Id = "UPDATE", Name = "Sửa" },
-                    new Command() { Id = "DELETE", Name = "Xoá" },
-                    new Command() { Id = "APPROVE", Name = "Duyệt" },
+                    new Command() { Id = "VIEW", Name = "View" },
+                    new Command() { Id = "CREATE", Name = "Create" },
+                    new Command() { Id = "UPDATE", Name = "Update" },
+                    new Command() { Id = "DELETE", Name = "Delete" },
+                    new Command() { Id = "APPROVE", Name = "Approve" },
                 });
 
                 await _context.SaveChangesAsync();
@@ -245,6 +247,7 @@ namespace EventHubSolution.BackendServer.Data
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_EVENT.GetDisplayName(), customerRole.Id, "VIEW"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), customerRole.Id, "VIEW"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), customerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), customerRole.Id, "UPDATE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), customerRole.Id, "DELETE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), customerRole.Id, "VIEW"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_REVIEW.GetDisplayName(), customerRole.Id, "CREATE"));
@@ -271,8 +274,8 @@ namespace EventHubSolution.BackendServer.Data
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_EVENT.GetDisplayName(), organizerRole.Id, "DELETE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_EVENT.GetDisplayName(), organizerRole.Id, "VIEW"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "VIEW"));
-                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "UPDATE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "CREATE"));
+                _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "UPDATE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_PAYMENT.GetDisplayName(), organizerRole.Id, "DELETE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), organizerRole.Id, "CREATE"));
                 _context.Permissions.Add(new Permission(FunctionCode.CONTENT_TICKET.GetDisplayName(), organizerRole.Id, "UPDATE"));

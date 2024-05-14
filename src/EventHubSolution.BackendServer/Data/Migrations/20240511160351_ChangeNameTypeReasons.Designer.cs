@@ -833,7 +833,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("UserName")
+                    b.Property<string>("FullName")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 

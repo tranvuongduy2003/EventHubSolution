@@ -17,6 +17,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public string Id { get; set; }
 
         [Required]
+        [MaxLength(50)]
+        [Column(TypeName = "varchar(50)")]
+        public string TicketNo { get; set; }
+
+        [Required]
         [MaxLength(100)]
         [Column(TypeName = "nvarchar(100)")]
         public string CustomerName { get; set; }
@@ -44,6 +49,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Required]
         [MaxLength(50)]
         [Column(TypeName = "varchar(50)")]
+        public string UserId { get; set; }
+
+        [Required]
+        [MaxLength(50)]
+        [Column(TypeName = "varchar(50)")]
         public string PaymentId { get; set; }
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -61,6 +71,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [NotMapped]
         [ForeignKey("EventId")]
         public virtual Event Event { get; set; } = null!;
+
+        [NotMapped]
+        [ForeignKey("UserId")]
+        public virtual User User { get; set; } = null!;
 
         [NotMapped]
         [ForeignKey("PaymentId")]

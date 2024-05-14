@@ -12,7 +12,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
+using System.ComponentModel.DataAnnotations;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
@@ -24,13 +27,15 @@ namespace EventHubSolution.BackendServer.Controllers
         private readonly IFileStorageService _fileService;
         private readonly UserManager<User> _userManager;
         private readonly ICacheService _cacheService;
+        private readonly ITokenService _tokenService;
 
-        public EventsController(ApplicationDbContext db, IFileStorageService fileService, UserManager<User> userManager, ICacheService cacheService)
+        public EventsController(ApplicationDbContext db, IFileStorageService fileService, UserManager<User> userManager, ICacheService cacheService, ITokenService tokenService)
         {
             _db = db;
             _fileService = fileService;
             _userManager = userManager;
             _cacheService = cacheService;
+            _tokenService = tokenService;
         }
 
         #region Events
@@ -44,7 +49,7 @@ namespace EventHubSolution.BackendServer.Controllers
             if (eventData != null)
                 return BadRequest(new ApiBadRequestResponse($"Event {request.Name} already existed!"));
 
-            eventData = new Event()
+            eventData = new Data.Entities.Event()
             {
                 Id = Guid.NewGuid().ToString(),
                 CreatorId = request.CreatorId,
@@ -349,29 +354,13 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e => filter.priceRange.StartRange <= e.PriceRange.StartRange && filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
             }
 
-            switch (filter.eventPrivacy)
-            {
-                case EventPrivacy.PUBLIC:
-                    eventVms = eventVms.Where(c => !c.IsPrivate).ToList();
-                    break;
-                case EventPrivacy.PRIVATE:
-                    eventVms = eventVms.Where(c => c.IsPrivate).ToList();
-                    break;
-                case EventPrivacy.TRASH:
-                    eventVms = eventVms.Where(c => c.IsTrash).ToList();
-                    break;
-                default:
-                    break;
-            }
+            eventVms = eventVms.Where(e => !e.IsPrivate).ToList();
 
             var metadata = new EventMetadata(
                 eventVms.Count(),
                 filter.page,
                 filter.size,
-                filter.takeAll,
-                eventVms.Count(e => !e.IsPrivate),
-                eventVms.Count(e => e.IsPrivate),
-                eventVms.Count(e => (bool)e.IsTrash));
+                filter.takeAll);
 
             if (filter.takeAll == false)
             {
@@ -418,6 +407,8 @@ namespace EventHubSolution.BackendServer.Controllers
                     NumberOfFavourites = eventData.NumberOfFavourites,
                     NumberOfShares = eventData.NumberOfShares,
                     NumberOfSoldTickets = eventData.NumberOfSoldTickets,
+                    IsPrivate = eventData.IsPrivate,
+                    IsTrash = eventData.IsTrash,
                     Location = eventData.Location,
                     Status = eventData.Status,
                     CreatedAt = eventData.CreatedAt,
@@ -518,6 +509,25 @@ namespace EventHubSolution.BackendServer.Controllers
                 _cacheService.SetData($"{CacheKey.EVENT}{id}", eventDataVm, expiryTime);
             }
 
+            User user = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+
+            if (eventDataVm.IsTrash == true && (user == null || user.Id != eventDataVm.CreatorId))
+                return Forbid("Access denied!");
+            if (eventDataVm.IsPrivate == true && (user == null || user.Id != eventDataVm.CreatorId))
+                return Forbid("Access denied!");
+
+            if (user != null)
+            {
+                var favouriteEvent = await _db.FavouriteEvents.FirstOrDefaultAsync(f => f.EventId.Equals(eventDataVm.Id) && f.UserId.Equals(user.Id));
+                eventDataVm.IsFavourite = favouriteEvent != null;
+            }
+
             return Ok(new ApiOkResponse(eventDataVm));
         }
 
@@ -531,12 +541,22 @@ namespace EventHubSolution.BackendServer.Controllers
             if (eventData == null || eventData.IsTrash == true)
                 return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
+            User user = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (user == null || user.Id != eventData.CreatorId)
+                return Forbid("Access denied!");
+
             var sameNameEvent = await _db.Events.FirstOrDefaultAsync(e => e.Name.ToLower().Equals(request.Name.ToLower()) && e.Id != eventData.Id);
             if (sameNameEvent != null)
                 return BadRequest(new ApiBadRequestResponse($"Event {request.Name} already existed!"));
 
-            var user = await _userManager.FindByIdAsync(request.CreatorId);
-            if (user == null)
+            var creator = await _userManager.FindByIdAsync(request.CreatorId);
+            if (creator == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {request.CreatorId} is not found"));
 
             eventData.CreatorId = request.CreatorId;
@@ -708,6 +728,16 @@ namespace EventHubSolution.BackendServer.Controllers
             if (eventData == null)
                 return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
 
+            User user = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (user == null || user.Id != eventData.CreatorId)
+                return Forbid("Access denied!");
+
             //TODO: Delete cover image
             await _fileService.DeleteFileByIdAsync(eventData.CoverImageId);
 
@@ -745,8 +775,8 @@ namespace EventHubSolution.BackendServer.Controllers
 
             _db.Events.Remove(eventData);
 
-            var user = await _userManager.FindByIdAsync(eventData.CreatorId);
-            user.NumberOfCreatedEvents -= 1;
+            var creator = await _userManager.FindByIdAsync(eventData.CreatorId);
+            creator.NumberOfCreatedEvents -= 1;
 
             var result = await _db.SaveChangesAsync();
 
@@ -760,23 +790,33 @@ namespace EventHubSolution.BackendServer.Controllers
             return BadRequest(new ApiBadRequestResponse(""));
         }
 
-        [HttpPatch("{id}/move-to-trash")]
+        [HttpPatch("move-to-trash")]
         [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.DELETE)]
-        public async Task<IActionResult> PatchMoveEventToTrash(string id)
+        public async Task<IActionResult> PatchMoveEventToTrash([Required] List<string> ids)
         {
-            var eventData = await _db.Events.FindAsync(id);
-            if (eventData == null)
-                return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
+            User user = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (user == null)
+                return Forbid("Access denied!");
 
-            eventData.IsTrash = true;
-            _db.Events.Update(eventData);
+            var events = _db.Events
+                .Join(ids, _event => _event.Id, id => id, (_event, id) => _event)
+                .Where(e => e.IsTrash == false && e.CreatorId.Equals(user.Id));
 
-            var user = await _userManager.FindByIdAsync(eventData.CreatorId);
-            user.NumberOfCreatedEvents -= 1;
+            await events.ExecuteUpdateAsync(setters => setters.SetProperty(e => e.IsTrash, true));
+
+            user.NumberOfCreatedEvents -= events.Count();
+            await _userManager.UpdateAsync(user);
 
             var result = await _db.SaveChangesAsync();
 
-            _cacheService.RemoveData($"{CacheKey.EVENT}{id}");
+            ids.ForEach(id => _cacheService.RemoveData($"{CacheKey.EVENT}{id}"));
+            _cacheService.RemoveData(CacheKey.EVENTS);
 
             if (result > 0)
             {
@@ -785,21 +825,97 @@ namespace EventHubSolution.BackendServer.Controllers
             return BadRequest(new ApiBadRequestResponse(""));
         }
 
-        [HttpPatch("{id}/recover")]
+        [HttpPatch("recover")]
         [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.UPDATE)]
-        public async Task<IActionResult> PatchRecoverTrashEvent(string id)
+        public async Task<IActionResult> PatchRecoverTrashEvent([Required] List<string> ids)
         {
-            var eventData = await _db.Events.FindAsync(id);
-            if (eventData == null)
-                return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
+            User user = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (user == null)
+                return Forbid("Access denied!");
 
-            eventData.IsTrash = false;
-            _db.Events.Update(eventData);
+            var events = _db.Events
+                .Join(ids, _event => _event.Id, id => id, (_event, id) => _event)
+                .Where(e => e.IsTrash == true && e.CreatorId.Equals(user.Id));
 
-            var user = await _userManager.FindByIdAsync(eventData.CreatorId);
-            user.NumberOfCreatedEvents += 1;
+            await events.ExecuteUpdateAsync(setters => setters.SetProperty(e => e.IsTrash, false));
+
+            user.NumberOfCreatedEvents += events.Count();
+            await _userManager.UpdateAsync(user);
 
             var result = await _db.SaveChangesAsync();
+
+            ids.ForEach(id => _cacheService.RemoveData($"{CacheKey.EVENT}{id}"));
+            _cacheService.RemoveData(CacheKey.EVENTS);
+
+            if (result > 0)
+            {
+                return Ok(new ApiOkResponse());
+            }
+            return BadRequest(new ApiBadRequestResponse(""));
+        }
+
+        [HttpPatch("move-to-private")]
+        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.DELETE)]
+        public async Task<IActionResult> PatchMoveEventToPrivate([Required] List<string> ids)
+        {
+            User user = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (user == null)
+                return Forbid("Access denied!");
+
+            var events = _db.Events
+                .Join(ids, _event => _event.Id, id => id, (_event, id) => _event)
+                .Where(e => e.IsPrivate == false && e.IsTrash == false && e.CreatorId.Equals(user.Id));
+
+            var result = await events.ExecuteUpdateAsync(setters => setters.SetProperty(e => e.IsPrivate, true));
+
+            await _db.SaveChangesAsync();
+
+            ids.ForEach(id => _cacheService.RemoveData($"{CacheKey.EVENT}{id}"));
+            _cacheService.RemoveData(CacheKey.EVENTS);
+
+            if (result > 0)
+            {
+                return Ok(new ApiOkResponse());
+            }
+            return BadRequest(new ApiBadRequestResponse(""));
+        }
+
+        [HttpPatch("move-to-public")]
+        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.UPDATE)]
+        public async Task<IActionResult> PatchMoveEventToPublic([Required] List<string> ids)
+        {
+            User user = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (user == null)
+                return Forbid("Access denied!");
+
+            var events = _db.Events
+                .Join(ids, _event => _event.Id, id => id, (_event, id) => _event)
+                .Where(e => e.IsPrivate == true && e.IsTrash == false && e.CreatorId.Equals(user.Id));
+
+            var result = await events.ExecuteUpdateAsync(setters => setters.SetProperty(e => e.IsPrivate, false));
+
+            await _db.SaveChangesAsync();
+
+            ids.ForEach(id => _cacheService.RemoveData($"{CacheKey.EVENT}{id}"));
+            _cacheService.RemoveData(CacheKey.EVENTS);
 
             if (result > 0)
             {
@@ -810,16 +926,20 @@ namespace EventHubSolution.BackendServer.Controllers
         #endregion
 
         #region Reviews
-        [HttpPost("{eventId}/reviewVms")]
+        [HttpPost("{eventId}/reviews")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.CREATE)]
         [ApiValidationFilter]
         public async Task<IActionResult> PostReview(string eventId, [FromBody] ReviewCreateRequest request)
         {
-            var dbEvent = await _db.Reviews.FindAsync(eventId);
-            if (dbEvent == null)
+            var dbEvent = await _db.Events.FindAsync(eventId);
+            if (dbEvent == null || dbEvent.IsTrash == true)
                 return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
 
-            var review = new Review()
+            var user = await _userManager.FindByIdAsync(request.UserId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {request.UserId} is not found"));
+
+            var review = new Data.Entities.Review()
             {
                 Id = Guid.NewGuid().ToString(),
                 EventId = eventId,
@@ -827,13 +947,21 @@ namespace EventHubSolution.BackendServer.Controllers
                 UserId = request.UserId,
                 Rate = request.Rate,
             };
-            var addedReview = _db.Reviews.Add(review);
+            var addedReview = await _db.Reviews.AddAsync(review);
             var result = await _db.SaveChangesAsync();
+
+            var eventCoverImage = await _fileService.GetFileByFileIdAsync(dbEvent.CoverImageId);
+            var userAvatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
 
             var reviewVm = new ReviewVm
             {
                 Id = addedReview.Entity.Id,
                 EventId = addedReview.Entity.EventId,
+                EventCoverImage = eventCoverImage?.FilePath ?? "",
+                EventName = dbEvent.Name,
+                FullName = user.FullName,
+                Email = user?.Email,
+                UserAvatar = userAvatar?.FilePath ?? "",
                 Content = addedReview.Entity.Content,
                 UserId = addedReview.Entity.UserId,
                 Rate = addedReview.Entity.Rate,
@@ -843,6 +971,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var expiryTime = DateTimeOffset.Now.AddMinutes(45);
             _cacheService.SetData<ReviewVm>($"{CacheKey.REVIEW}{reviewVm.Id}", reviewVm, expiryTime);
+            _cacheService.RemoveData(CacheKey.REVIEWS);
 
             if (result > 0)
             {
@@ -854,13 +983,25 @@ namespace EventHubSolution.BackendServer.Controllers
             }
         }
 
-        [HttpGet("{eventId}/reviewVms")]
+        [HttpGet("{eventId}/reviews")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.VIEW)]
         public async Task<IActionResult> GetReviews(string eventId, [FromQuery] PaginationFilter filter)
         {
-            var dbEvent = await _db.Reviews.FindAsync(eventId);
+            var dbEvent = await _db.Events.FindAsync(eventId);
             if (dbEvent == null)
                 return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
+
+            User user = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                user = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (dbEvent.IsTrash == true && (user == null || user.Id != dbEvent.CreatorId))
+                return Forbid("Access denied!");
+            if (dbEvent.IsPrivate == true && (user == null || user.Id != dbEvent.CreatorId))
+                return Forbid("Access denied!");
 
             // Check cache data
             var reviewVms = new List<ReviewVm>();
@@ -869,42 +1010,49 @@ namespace EventHubSolution.BackendServer.Controllers
                 reviewVms = cacheReviewVms.ToList();
             else
             {
+                var eventCoverImage = await _fileService.GetFileByFileIdAsync(dbEvent.CoverImageId);
+
                 var fileStorages = await _fileService.GetListFileStoragesAsync();
 
                 var users = (from _user in _userManager.Users.ToList()
                              join _fileStorage in fileStorages
                              on _user.AvatarId equals _fileStorage.Id
                              into joinedUsers
-                             from _joinedUser in joinedUsers
+                             from _joinedUser in joinedUsers.DefaultIfEmpty()
                              select new UserVm
                              {
                                  Id = _user.Id,
                                  Email = _user.Email,
                                  FullName = _user.FullName,
-                                 Avatar = _joinedUser.FilePath,
-                             });
+                                 Avatar = _joinedUser != null && _joinedUser.FilePath != null ? _joinedUser.FilePath : null,
+                             }); ;
 
                 reviewVms = (from _review in _db.Reviews.ToList()
-                             join _event in _db.Events.ToList() on _review.EventId equals _event.Id
+                             join _event in _db.Events.ToList()
+                             on _review.EventId equals _event.Id
                              join _user in users on _review.UserId equals _user.Id
                              select new ReviewVm
                              {
                                  Id = _review.Id,
                                  EventId = _review.EventId,
                                  EventName = _event.Name,
+                                 EventCoverImage = eventCoverImage?.FilePath ?? "",
                                  UserId = _review.UserId,
                                  UserAvatar = _user.Avatar,
-                                 UserName = _user.FullName,
+                                 Email = _user?.Email,
+                                 FullName = _user.FullName,
                                  Content = _review.Content,
                                  Rate = _review.Rate,
                                  CreatedAt = _review.CreatedAt,
                                  UpdatedAt = _review.UpdatedAt,
                              }).ToList();
+
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<IEnumerable<ReviewVm>>(CacheKey.REVIEWS, reviewVms, expiryTime);
             }
 
             reviewVms = reviewVms.Where(r => r.EventId == eventId).ToList();
-
-            var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -917,6 +1065,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => reviewVms.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => reviewVms
             };
+
+            var metadata = new Metadata(reviewVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {
@@ -935,10 +1085,11 @@ namespace EventHubSolution.BackendServer.Controllers
             return Ok(new ApiOkResponse(pagination));
         }
 
-        [HttpGet("{eventId}/reviewVms/{reviewId}")]
+        [HttpGet("{eventId}/reviews/{reviewId}")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.VIEW)]
         public async Task<IActionResult> GetReviewById(string eventId, string reviewId)
-        {// Check cache data
+        {
+            // Check cache data
             ReviewVm reviewVm = null;
             var cacheReviewVm = _cacheService.GetData<ReviewVm>($"{CacheKey.REVIEW}{reviewId}");
             if (cacheReviewVm != null)
@@ -948,27 +1099,23 @@ namespace EventHubSolution.BackendServer.Controllers
                 var review = await _db.Reviews.FindAsync(reviewId);
                 if (review == null)
                     return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
-                var fileStorages = await _fileService.GetListFileStoragesAsync();
-
-                var users = _userManager.Users.Join(fileStorages, _user => _user.AvatarId, _fileStorage => _fileStorage.Id, (_user, _fileStorage) => new UserVm
-                {
-                    Id = _user.Id,
-                    Email = _user.Email,
-                    FullName = _user.FullName,
-                    Avatar = _fileStorage.FilePath,
-                });
-                var reviewUser = users.FirstOrDefault(u => u.Id == review.UserId);
 
                 var dbEvent = await _db.Events.FindAsync(review.EventId);
+                var eventCoverImage = await _fileService.GetFileByFileIdAsync(dbEvent.CoverImageId);
+
+                var user = await _userManager.FindByIdAsync(review.UserId);
+                var userAvatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
 
                 reviewVm = new ReviewVm()
                 {
                     Id = review.Id,
                     EventId = review.EventId,
                     EventName = dbEvent?.Name,
+                    EventCoverImage = eventCoverImage?.FilePath ?? "",
                     UserId = review.UserId,
-                    UserAvatar = reviewUser?.Avatar,
-                    UserName = reviewUser?.FullName,
+                    UserAvatar = userAvatar?.FilePath,
+                    FullName = user?.FullName,
+                    Email = user?.Email,
                     Content = review.Content,
                     Rate = review.Rate,
                     CreatedAt = review.CreatedAt,
@@ -982,7 +1129,7 @@ namespace EventHubSolution.BackendServer.Controllers
             return Ok(new ApiOkResponse(reviewVm));
         }
 
-        [HttpPut("{eventId}/reviewVms/{reviewId}")]
+        [HttpPut("{eventId}/reviews/{reviewId}")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.UPDATE)]
         [ApiValidationFilter]
         public async Task<IActionResult> PutReview(string eventId, string reviewId, [FromBody] ReviewCreateRequest request)
@@ -990,6 +1137,24 @@ namespace EventHubSolution.BackendServer.Controllers
             var review = await _db.Reviews.FindAsync(reviewId);
             if (review == null)
                 return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
+
+            var dbEvent = await _db.Events.FindAsync(request.EventId);
+            if (dbEvent == null || dbEvent.IsTrash == true)
+                return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
+
+            var user = await _userManager.FindByIdAsync(request.UserId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {request.UserId} is not found"));
+
+            User creator = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                creator = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (creator == null || (creator.Id != dbEvent.CreatorId && creator.Id != review.UserId) || user.Id != review.UserId)
+                return Forbid("Access denied");
 
             review.EventId = request.EventId;
             review.UserId = request.UserId;
@@ -999,12 +1164,20 @@ namespace EventHubSolution.BackendServer.Controllers
             var updatedReview = _db.Reviews.Update(review);
             var result = await _db.SaveChangesAsync();
 
+            var eventCoverImage = await _fileService.GetFileByFileIdAsync(dbEvent.CoverImageId);
+            var avatar = await _fileService.GetFileByFileIdAsync(user.AvatarId);
+
             var reviewVm = new ReviewVm
             {
                 Id = updatedReview.Entity.Id,
                 EventId = updatedReview.Entity.EventId,
+                EventCoverImage = eventCoverImage?.FilePath ?? "",
                 Content = updatedReview.Entity.Content,
                 UserId = updatedReview.Entity.UserId,
+                Email = user?.Email,
+                EventName = dbEvent?.Name,
+                FullName = user?.FullName,
+                UserAvatar = avatar?.FilePath,
                 Rate = updatedReview.Entity.Rate,
                 CreatedAt = updatedReview.Entity.CreatedAt,
                 UpdatedAt = updatedReview.Entity.UpdatedAt,
@@ -1012,6 +1185,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             var expiryTime = DateTimeOffset.Now.AddMinutes(45);
             _cacheService.SetData<ReviewVm>($"{CacheKey.REVIEW}{reviewVm.Id}", reviewVm, expiryTime);
+            _cacheService.RemoveData(CacheKey.REVIEWS);
 
             if (result > 0)
             {
@@ -1020,7 +1194,7 @@ namespace EventHubSolution.BackendServer.Controllers
             return BadRequest(new ApiBadRequestResponse(""));
         }
 
-        [HttpDelete("{eventId}/reviewVms/{reviewId}")]
+        [HttpDelete("{eventId}/reviews/{reviewId}")]
         [ClaimRequirement(FunctionCode.CONTENT_REVIEW, CommandCode.DELETE)]
         public async Task<IActionResult> DeleteReview(string eventId, string reviewId)
         {
@@ -1028,10 +1202,25 @@ namespace EventHubSolution.BackendServer.Controllers
             if (review == null)
                 return NotFound(new ApiNotFoundResponse($"Review with id {reviewId} is not existed."));
 
+            var dbEvent = await _db.Events.FindAsync(review.EventId);
+            if (dbEvent == null || dbEvent.IsTrash == true)
+                return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
+
+            User creator = null;
+            var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");
+            if (!accessToken.IsNullOrEmpty())
+            {
+                var principal = _tokenService.GetPrincipalFromToken(accessToken);
+                creator = await _userManager.FindByIdAsync(principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti).Value);
+            }
+            if (creator == null || (creator.Id != dbEvent.CreatorId && creator.Id != review.UserId))
+                return Forbid("Access denied");
+
             _db.Reviews.Remove(review);
             var result = await _db.SaveChangesAsync();
 
             _cacheService.RemoveData($"{CacheKey.REVIEW}{reviewId}");
+            _cacheService.RemoveData(CacheKey.REVIEWS);
 
             if (result > 0)
             {
@@ -1048,14 +1237,14 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> PostCreateFavouriteEvent(string eventId, [FromBody] FavouriteEventCreateRequest request)
         {
             var dbEvent = await _db.Events.FindAsync(request.EventId);
-            if (dbEvent == null)
+            if (dbEvent == null || dbEvent.IsTrash == true)
                 return NotFound(new ApiNotFoundResponse($"Event with id {request.EventId} is not existed."));
 
             var user = await _userManager.FindByIdAsync(request.UserId);
             if (user == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {request.UserId} is not existed."));
 
-            var dbFavouriteEvent = await _db.FavouriteEvents.FindAsync(request.EventId, request.UserId);
+            var dbFavouriteEvent = await _db.FavouriteEvents.FirstOrDefaultAsync(f => f.EventId.Equals(request.EventId) && f.UserId.Equals(request.UserId));
             if (dbFavouriteEvent != null)
                 return BadRequest(new ApiBadRequestResponse($"User has subscribed this event before"));
 
@@ -1068,6 +1257,8 @@ namespace EventHubSolution.BackendServer.Controllers
             _db.FavouriteEvents.Add(favouriteEvent);
 
             var result = await _db.SaveChangesAsync();
+
+            _cacheService.RemoveData($"{CacheKey.EVENT}{dbEvent.Id}");
 
             if (result > 0)
             {
@@ -1091,20 +1282,22 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> PostRemoveFavouriteEvent(string eventId, [FromBody] FavouriteEventCreateRequest request)
         {
             var dbEvent = await _db.Events.FindAsync(request.EventId);
-            if (dbEvent == null)
+            if (dbEvent == null || dbEvent.IsTrash == true)
                 return NotFound(new ApiNotFoundResponse($"Event with id {request.EventId} is not existed."));
 
             var user = await _userManager.FindByIdAsync(request.UserId);
             if (user == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {request.UserId} is not existed."));
 
-            var dbFavouriteEvent = await _db.FavouriteEvents.FindAsync(request.EventId, request.UserId);
+            var dbFavouriteEvent = await _db.FavouriteEvents.FirstOrDefaultAsync(f => f.EventId.Equals(request.EventId) && f.UserId.Equals(request.UserId));
             if (dbFavouriteEvent == null)
                 return NotFound(new ApiNotFoundResponse($"User has not subscribed this event before"));
 
             _db.FavouriteEvents.Remove(dbFavouriteEvent);
 
             var result = await _db.SaveChangesAsync();
+
+            _cacheService.RemoveData($"{CacheKey.EVENT}{dbEvent.Id}");
 
             if (result > 0)
             {
@@ -1126,17 +1319,14 @@ namespace EventHubSolution.BackendServer.Controllers
         #region Conversations
         [HttpGet("{eventId}/conversations")]
         [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
-        public async Task<IActionResult> GetConversationsByHostId(string eventId, [FromQuery] PaginationFilter filter)
+        public async Task<IActionResult> GetConversationsByEventId(string eventId, [FromQuery] PaginationFilter filter)
         {
-            // Check cache data
-            var conversationVms = new List<ConversationVm>();
-            var cacheConversations = _cacheService.GetData<IEnumerable<ConversationVm>>($"{CacheKey.CONVERSATIONS}event{eventId}");
-            if (cacheConversations != null && cacheConversations.Count() > 0)
-                conversationVms = cacheConversations.ToList();
-            else
-            {
-                var fileStorages = await _fileService.GetListFileStoragesAsync();
-                conversationVms = (from conversation in _db.Conversations.ToList()
+            var dbEvent = await _db.Events.FindAsync(eventId);
+            if (dbEvent == null || dbEvent.IsTrash == true)
+                return NotFound(new ApiNotFoundResponse($"Event with id {eventId} is not existed."));
+
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
+            var conversationVms = (from conversation in _db.Conversations.ToList()
                                    join eventItem in (from eventEntity in _db.Events.ToList()
                                                       join file in fileStorages
                                                       on eventEntity.CoverImageId equals file.Id
@@ -1166,7 +1356,6 @@ namespace EventHubSolution.BackendServer.Controllers
                                    into joinedMessageConversations
                                    from joinedMessage in joinedMessageConversations.DefaultIfEmpty()
                                    where conversation.EventId == eventId
-                                   orderby conversation.UpdatedAt ascending
                                    select new ConversationVm
                                    {
                                        Id = conversation.Id,
@@ -1191,12 +1380,7 @@ namespace EventHubSolution.BackendServer.Controllers
                                        CreatedAt = conversation.CreatedAt,
                                        UpdatedAt = conversation.UpdatedAt
                                    }).ToList();
-                // Set expiry time
-                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
-                _cacheService.SetData<IEnumerable<ConversationVm>>($"{CacheKey.CONVERSATIONS}event{eventId}", conversationVms, expiryTime);
-            }
 
-            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -1210,6 +1394,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 _ => conversationVms
             };
 
+            var metadata = new Metadata(conversationVms.Count(), filter.page, filter.size, filter.takeAll);
+
             if (filter.takeAll == false)
             {
                 conversationVms = conversationVms.Skip((filter.page - 1) * filter.size)
@@ -1219,6 +1405,132 @@ namespace EventHubSolution.BackendServer.Controllers
             var pagination = new Pagination<ConversationVm>
             {
                 Items = conversationVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
+        #endregion
+
+        #region Payments
+        [HttpGet("{id}/payments")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetPaymentsByEventId(string id, [FromQuery] PaymentPaginationFilter filter)
+        {
+            var eventData = await _db.Events.FindAsync(id);
+            if (eventData == null || eventData.IsTrash == true)
+                return NotFound(new ApiNotFoundResponse($"Event with id {id} does not exist!"));
+
+            var payments = _db.Payments.Where(p => p.EventId.Equals(id)).ToList();
+
+            if (filter.search != null)
+            {
+                payments = payments.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
+                                               c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
+                                               c.CustomerPhone.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            payments = filter.order switch
+            {
+                PageOrder.ASC => payments.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => payments.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => payments
+            };
+
+            payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
+
+            var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.takeAll == false)
+            {
+                payments = payments.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var paymentVms = payments.Select(p => new PaymentVm()
+            {
+                Id = p.Id,
+                CustomerName = p.CustomerName,
+                CustomerEmail = p.CustomerEmail,
+                CustomerPhone = p.CustomerPhone,
+                Discount = p.Discount,
+                Status = p.Status,
+                EventId = p.EventId,
+                PaymentMethod = (PaymentMethod)p.PaymentMethod,
+                PaymentSessionId = p.PaymentSessionId,
+                TicketQuantity = p.TicketQuantity,
+                TotalPrice = p.TotalPrice,
+                UserId = p.UserId,
+                PaymentIntentId = p.PaymentIntentId,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt
+            }).ToList();
+
+            var pagination = new Pagination<PaymentVm>
+            {
+                Items = paymentVms,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
+        #endregion
+
+        #region Tickets
+        [HttpGet("{id}/tickets")]
+        [ClaimRequirement(FunctionCode.CONTENT_TICKET, CommandCode.VIEW)]
+        public async Task<IActionResult> GetTicketsByEventId(string id, [FromQuery] PaginationFilter filter)
+        {
+            var eventData = await _db.Events.FindAsync(id);
+            if (eventData == null || eventData.IsTrash == true)
+                return NotFound(new ApiNotFoundResponse($"Event with id {id} does not exist!"));
+
+            var tickets = _db.Tickets.Where(t => t.EventId == id).ToList();
+
+            if (!filter.search.IsNullOrEmpty())
+            {
+                tickets = tickets.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
+                                             c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
+                                             c.CustomerPhone.ToLower().Contains(filter.search.ToLower())
+                ).ToList();
+            }
+
+            tickets = filter.order switch
+            {
+                PageOrder.ASC => tickets.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => tickets.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => tickets
+            };
+
+            var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.takeAll == false)
+            {
+                tickets = tickets.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var ticketVms = tickets.Select(t => new TicketVm()
+            {
+                Id = t.Id,
+                EventId = t.EventId,
+                CustomerName = t.CustomerName,
+                CustomerPhone = t.CustomerPhone,
+                CustomerEmail = t.CustomerEmail,
+                Status = t.Status,
+                PaymentId = t.PaymentId,
+                TicketTypeId = t.TicketTypeId,
+                CreatedAt = t.CreatedAt,
+                UpdatedAt = t.UpdatedAt
+            }).ToList();
+
+            var pagination = new Pagination<TicketVm>
+            {
+                Items = ticketVms,
                 Metadata = metadata,
             };
 

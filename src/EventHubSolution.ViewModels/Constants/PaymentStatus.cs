@@ -4,6 +4,8 @@
     {
         PAID,
         PENDING,
-        FAILED
+        FAILED,
+        REJECTED,
+        ALL
     }
 }

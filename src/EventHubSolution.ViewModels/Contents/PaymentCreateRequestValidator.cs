@@ -41,6 +41,6 @@ public class PaymentCreateRequestValidator : AbstractValidator<PaymentCreateRequ
 
         RuleFor(x => x.PaymentIntentId).NotEmpty().WithMessage("PaymentIntentId is required");
 
-        RuleFor(x => x.PaymentSession).NotEmpty().WithMessage("PaymentSession is required");
+        RuleFor(x => x.PaymentSessionId).NotEmpty().WithMessage("PaymentSessionId is required");
     }
 }

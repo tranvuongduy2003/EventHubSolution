@@ -57,7 +57,6 @@ namespace EventHubSolution.BackendServer.Controllers
         {
             var tickets = _db.Tickets.ToList();
 
-            var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
 
             if (!filter.search.IsNullOrEmpty())
             {
@@ -73,6 +72,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 PageOrder.DESC => tickets.OrderByDescending(c => c.CreatedAt).ToList(),
                 _ => tickets
             };
+
+            var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
 
             if (filter.takeAll == false)
             {

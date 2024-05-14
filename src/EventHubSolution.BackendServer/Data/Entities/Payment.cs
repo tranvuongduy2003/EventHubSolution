@@ -57,11 +57,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public PaymentStatus Status { get; set; }
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public PaymentMethod PaymentMethod { get; set; }
+        public PaymentMethod? PaymentMethod { get; set; }
 
-        public string PaymentIntentId { get; set; }
+        public string? PaymentIntentId { get; set; }
 
-        public string PaymentSession { get; set; }
+        public string? PaymentSessionId { get; set; }
 
         public DateTime CreatedAt { get; set; }
 
@@ -78,5 +78,8 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [NotMapped]
         public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+
+        [NotMapped]
+        public virtual ICollection<PaymentItem> PaymentItems { get; set; } = new List<PaymentItem>();
     }
 }

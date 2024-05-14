@@ -56,7 +56,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             User user = new()
             {
-                UserName = request.UserName,
+                UserName = request.Email,
                 Email = request.Email,
                 PhoneNumber = request.PhoneNumber,
                 FullName = request.FullName,
@@ -88,9 +88,9 @@ namespace EventHubSolution.BackendServer.Controllers
                     RefreshToken = refreshToken
                 };
 
-                //await SendRegistrationConfirmationEmailAsync(userToReturn.Email, userToReturn.UserName);
+                //await SendRegistrationConfirmationEmailAsync(userToReturn.Email, userToReturn.FullName);
 
-                return CreatedAtAction(nameof(SignUp), new { id = userToReturn.Id }, signUpResponse);
+                return Ok(new ApiOkResponse(signUpResponse));
             }
             else
             {

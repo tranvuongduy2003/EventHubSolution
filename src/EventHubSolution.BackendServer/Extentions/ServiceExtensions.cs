@@ -98,6 +98,9 @@ namespace EventHubSolution.BackendServer.Extentions
 
             services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
 
+            Stripe.StripeConfiguration.ApiKey = configuration.GetSection("Stripe:SecretKey").Get<string>();
+
+
             services.Configure<IdentityOptions>(options =>
             {
                 // Default Lockout settings.
@@ -150,6 +153,8 @@ namespace EventHubSolution.BackendServer.Extentions
                 .AddTransient<ITokenService, TokenService>()
                 .AddTransient<ICacheService, CacheService>();
 
+
+            services.AddSingleton<StripeService>();
             services.AddSingleton<AzureBlobService>();
 
             return services;
