@@ -295,18 +295,43 @@ namespace EventHubSolution.BackendServer.Controllers
                                 _eventVm,
                                 _joinedCategoryEvent
                             })
-                                    .GroupBy(joinedEvent => joinedEvent._eventVm)
-                                    .Select(groupedEvent =>
-                                    {
-                                        var eventVm = groupedEvent.Key;
-                                        eventVm.Categories = groupedEvent
-                                                                .Where(e => e._joinedCategoryEvent?.CategoryVm != null)
-                                                                .Select(e => e._joinedCategoryEvent.CategoryVm)
-                                                                .ToList();
-                                        return eventVm;
-                                    })
-                                    .DistinctBy(e => e.Id)
-                                    .ToList();
+                            .GroupBy(joinedEvent => joinedEvent._eventVm)
+                            .Select(groupedEvent =>
+                            {
+                                var eventVm = groupedEvent.Key;
+                                eventVm.Categories = groupedEvent
+                                                        .Where(e => e._joinedCategoryEvent?.CategoryVm != null)
+                                                        .Select(e => e._joinedCategoryEvent.CategoryVm)
+                                                        .ToList();
+                                return eventVm;
+                            })
+                            .DistinctBy(e => e.Id)
+                            .ToList();
+
+                eventVms = (from _eventVm in eventVms
+                            join _review in _db.Reviews.ToList()
+                            on _eventVm.Id equals _review.EventId
+                            into joinedReviewEvents
+                            from _joinedReviewEvent in joinedReviewEvents.DefaultIfEmpty()
+                            select new
+                            {
+                                _eventVm,
+                                _joinedReviewEvent
+                            })
+                            .GroupBy(joinedEvent => joinedEvent._eventVm)
+                            .Select(groupedEvent =>
+                            {
+                                var eventVm = groupedEvent.Key;
+                                eventVm.AverageRating =
+                                    groupedEvent
+                                        .Where(e => e._joinedReviewEvent != null)
+                                        .Sum(e => e._joinedReviewEvent.Rate) /
+                                    groupedEvent
+                                        .Count(e => e._joinedReviewEvent != null);
+                                return eventVm;
+                            })
+                            .DistinctBy(e => e.Id)
+                            .ToList();
 
 
                 // Set expiry time
@@ -354,6 +379,11 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e => filter.priceRange.StartRange <= e.PriceRange.StartRange && filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
             }
 
+            if (filter.rates != null)
+            {
+                eventVms = eventVms.Where(e => filter.rates.Where(r => (r - 0.5) < e.AverageRating && e.AverageRating <= (r + 0.5)).Any()).ToList();
+            }
+
             eventVms = eventVms.Where(e => !e.IsPrivate).ToList();
 
             var metadata = new EventMetadata(
@@ -393,6 +423,8 @@ namespace EventHubSolution.BackendServer.Controllers
                     return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
                 var fileStorages = await _fileService.GetListFileStoragesAsync();
 
+                var averageRating = _db.Reviews.Sum(r => r.Rate) / _db.Reviews.Count(r => r.EventId == eventData.Id);
+
                 eventDataVm = new EventDetailVm()
                 {
                     Id = eventData.Id,
@@ -409,6 +441,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     NumberOfSoldTickets = eventData.NumberOfSoldTickets,
                     IsPrivate = eventData.IsPrivate,
                     IsTrash = eventData.IsTrash,
+                    AverageRating = averageRating,
                     Location = eventData.Location,
                     Status = eventData.Status,
                     CreatedAt = eventData.CreatedAt,

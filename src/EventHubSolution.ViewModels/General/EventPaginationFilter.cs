@@ -74,5 +74,19 @@ namespace EventHubSolution.ViewModels.General
                 _eventPrivacy = value;
             }
         }
+
+        private List<double> _rates;
+        [DefaultValue(null)]
+        public List<double>? rates
+        {
+            get
+            {
+                return _rates;
+            }
+            set
+            {
+                _rates = value;
+            }
+        }
     }
 }

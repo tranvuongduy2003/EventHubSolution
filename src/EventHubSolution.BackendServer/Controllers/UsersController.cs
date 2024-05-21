@@ -625,6 +625,31 @@ namespace EventHubSolution.BackendServer.Controllers
                 .DistinctBy(e => e.Id)
                 .ToList();
 
+            eventVms = (from _eventVm in eventVms
+                        join _review in _db.Reviews.ToList()
+                        on _eventVm.Id equals _review.EventId
+                        into joinedReviewEvents
+                        from _joinedReviewEvent in joinedReviewEvents.DefaultIfEmpty()
+                        select new
+                        {
+                            _eventVm,
+                            _joinedReviewEvent
+                        })
+                            .GroupBy(joinedEvent => joinedEvent._eventVm)
+                            .Select(groupedEvent =>
+                            {
+                                var eventVm = groupedEvent.Key;
+                                eventVm.AverageRating =
+                                    groupedEvent
+                                        .Where(e => e._joinedReviewEvent != null)
+                                        .Sum(e => e._joinedReviewEvent.Rate) /
+                                    groupedEvent
+                                        .Count(e => e._joinedReviewEvent != null);
+                                return eventVm;
+                            })
+                            .DistinctBy(e => e.Id)
+                            .ToList();
+
             if (!filter.search.IsNullOrEmpty())
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -666,6 +691,11 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e =>
                     filter.priceRange.StartRange <= e.PriceRange.StartRange &&
                     filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
+            }
+
+            if (filter.rates != null)
+            {
+                eventVms = eventVms.Where(e => filter.rates.Where(r => (r - 0.5) < e.AverageRating && e.AverageRating <= (r + 0.5)).Any()).ToList();
             }
 
             var metadata = new EventMetadata(
@@ -828,6 +858,31 @@ namespace EventHubSolution.BackendServer.Controllers
                                 .DistinctBy(e => e.Id)
                                 .ToList();
 
+            eventVms = (from _eventVm in eventVms
+                        join _review in _db.Reviews.ToList()
+                        on _eventVm.Id equals _review.EventId
+                        into joinedReviewEvents
+                        from _joinedReviewEvent in joinedReviewEvents.DefaultIfEmpty()
+                        select new
+                        {
+                            _eventVm,
+                            _joinedReviewEvent
+                        })
+                            .GroupBy(joinedEvent => joinedEvent._eventVm)
+                            .Select(groupedEvent =>
+                            {
+                                var eventVm = groupedEvent.Key;
+                                eventVm.AverageRating =
+                                    groupedEvent
+                                        .Where(e => e._joinedReviewEvent != null)
+                                        .Sum(e => e._joinedReviewEvent.Rate) /
+                                    groupedEvent
+                                        .Count(e => e._joinedReviewEvent != null);
+                                return eventVm;
+                            })
+                            .DistinctBy(e => e.Id)
+                            .ToList();
+
             if (!filter.search.IsNullOrEmpty())
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -869,6 +924,11 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e =>
                     filter.priceRange.StartRange <= e.PriceRange.StartRange &&
                     filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
+            }
+
+            if (filter.rates != null)
+            {
+                eventVms = eventVms.Where(e => filter.rates.Where(r => (r - 0.5) < e.AverageRating && e.AverageRating <= (r + 0.5)).Any()).ToList();
             }
 
             var metadata = new EventMetadata(
@@ -1031,6 +1091,31 @@ namespace EventHubSolution.BackendServer.Controllers
                                 .DistinctBy(e => e.Id)
                                 .ToList();
 
+            eventVms = (from _eventVm in eventVms
+                        join _review in _db.Reviews.ToList()
+                        on _eventVm.Id equals _review.EventId
+                        into joinedReviewEvents
+                        from _joinedReviewEvent in joinedReviewEvents.DefaultIfEmpty()
+                        select new
+                        {
+                            _eventVm,
+                            _joinedReviewEvent
+                        })
+                            .GroupBy(joinedEvent => joinedEvent._eventVm)
+                            .Select(groupedEvent =>
+                            {
+                                var eventVm = groupedEvent.Key;
+                                eventVm.AverageRating =
+                                    groupedEvent
+                                        .Where(e => e._joinedReviewEvent != null)
+                                        .Sum(e => e._joinedReviewEvent.Rate) /
+                                    groupedEvent
+                                        .Count(e => e._joinedReviewEvent != null);
+                                return eventVm;
+                            })
+                            .DistinctBy(e => e.Id)
+                            .ToList();
+
             if (!filter.search.IsNullOrEmpty())
             {
                 eventVms = eventVms.Where(c => c.Name.ToLower().Contains(filter.search.ToLower())).ToList();
@@ -1072,6 +1157,11 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e =>
                     filter.priceRange.StartRange <= e.PriceRange.StartRange &&
                     filter.priceRange.EndRange <= e.PriceRange.EndRange).ToList();
+            }
+
+            if (filter.rates != null)
+            {
+                eventVms = eventVms.Where(e => filter.rates.Where(r => (r - 0.5) < e.AverageRating && e.AverageRating <= (r + 0.5)).Any()).ToList();
             }
 
             var metadata = new EventMetadata(
