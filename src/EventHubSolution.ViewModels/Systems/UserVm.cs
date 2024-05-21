@@ -36,6 +36,8 @@ namespace EventHubSolution.ViewModels.Systems
 
         public List<string> Roles { get; set; }
 
+        public List<string> FollowingIds { get; set; } = new();
+
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }

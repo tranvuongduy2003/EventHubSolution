@@ -24,10 +24,7 @@ public class PaymentCreateRequest
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public PaymentStatus Status { get; set; }
 
-    [JsonConverter(typeof(JsonStringEnumConverter))]
-    public PaymentMethod PaymentMethod { get; set; }
-
-    public string PaymentIntentId { get; set; }
+    public string UserPaymentMethodId { get; set; }
 
     public string PaymentSessionId { get; set; }
 }

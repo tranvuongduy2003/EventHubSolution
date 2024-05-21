@@ -7,7 +7,6 @@ using EventHubSolution.BackendServer.Services.Interfaces;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.General;
-using EventHubSolution.ViewModels.Stripe;
 using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +14,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Extensions;
 using Newtonsoft.Json;
-using Stripe;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
@@ -1299,9 +1297,8 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         #region Followers
-
         [HttpPost("followers/follow")]
-        [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.CREATE)]
+        //[ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.CREATE)]
         [ApiValidationFilter]
         public async Task<IActionResult> PostFollowUser([FromBody] FollowerCreateRequest request)
         {
@@ -1313,27 +1310,53 @@ namespace EventHubSolution.BackendServer.Controllers
             if (followed == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {request.FollowedId} is not existed."));
 
-            var userFollower = await _db.UserFollowers.FindAsync(request.FollowedId, request.FollowedId);
+            var userFollower = await _db.UserFollowers.FindAsync(request.FollowerId, request.FollowedId);
             if (userFollower != null)
                 return BadRequest(new ApiBadRequestResponse($"User has been followed before"));
-
 
             userFollower = new UserFollower
             {
                 FollowerId = request.FollowerId,
                 FollowedId = request.FollowedId,
             };
-            _db.UserFollowers.Add(userFollower);
+            await _db.UserFollowers.AddAsync(userFollower);
+            var result = await _db.SaveChangesAsync();
 
             followed.NumberOfFollowers += 1;
             follower.NumberOfFolloweds += 1;
 
-            var result = await _db.SaveChangesAsync();
+            await _userManager.UpdateAsync(follower);
+            await _userManager.UpdateAsync(followed);
+            await _db.SaveChangesAsync();
+
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(PostFollowUser),
-                    new { followerId = userFollower.FollowerId, followedId = userFollower.FollowedId }, request);
+                var avatar = await _fileService.GetFileByFileIdAsync(follower.AvatarId);
+                var roles = await _userManager.GetRolesAsync(follower);
+                var userVm = new UserVm()
+                {
+                    Id = follower.Id,
+                    UserName = follower.UserName,
+                    Email = follower.Email,
+                    PhoneNumber = follower.PhoneNumber,
+                    Dob = follower.Dob,
+                    FullName = follower.FullName,
+                    Gender = follower.Gender,
+                    Bio = follower.Bio,
+                    NumberOfCreatedEvents = follower.NumberOfCreatedEvents,
+                    NumberOfFavourites = follower.NumberOfFavourites,
+                    NumberOfFolloweds = follower.NumberOfFolloweds,
+                    NumberOfFollowers = follower.NumberOfFollowers,
+                    FollowingIds = _db.UserFollowers.Where(uf => uf.FollowerId == follower.Id).Select(uf => uf.FollowedId).ToList(),
+                    Status = follower.Status,
+                    Avatar = avatar?.FilePath,
+                    Roles = roles.ToList(),
+                    CreatedAt = follower.CreatedAt,
+                    UpdatedAt = follower.UpdatedAt
+                };
+
+                return Ok(new ApiOkResponse(userVm));
             }
             else
             {
@@ -1342,7 +1365,7 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpPost("followers/unfollow")]
-        [ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.DELETE)]
+        //[ClaimRequirement(FunctionCode.SYSTEM_USER, CommandCode.DELETE)]
         [ApiValidationFilter]
         public async Task<IActionResult> PostUnFollowUser([FromBody] FollowerCreateRequest request)
         {
@@ -1354,20 +1377,47 @@ namespace EventHubSolution.BackendServer.Controllers
             if (followed == null)
                 return NotFound(new ApiNotFoundResponse($"User with id {request.FollowedId} is not existed."));
 
-            var userFollower = await _db.UserFollowers.FindAsync(request.FollowedId, request.FollowedId);
+            var userFollower = await _db.UserFollowers.FindAsync(request.FollowerId, request.FollowedId);
             if (userFollower == null)
                 return NotFound(new ApiNotFoundResponse($"User has not been followed before"));
 
             _db.UserFollowers.Remove(userFollower);
+            var result = await _db.SaveChangesAsync();
 
             followed.NumberOfFollowers -= 1;
             follower.NumberOfFolloweds -= 1;
 
-            var result = await _db.SaveChangesAsync();
+            await _userManager.UpdateAsync(follower);
+            await _userManager.UpdateAsync(followed);
+            await _db.SaveChangesAsync();
 
             if (result > 0)
             {
-                return Ok(new ApiOkResponse());
+                var avatar = await _fileService.GetFileByFileIdAsync(follower.AvatarId);
+                var roles = await _userManager.GetRolesAsync(follower);
+                var userVm = new UserVm()
+                {
+                    Id = follower.Id,
+                    UserName = follower.UserName,
+                    Email = follower.Email,
+                    PhoneNumber = follower.PhoneNumber,
+                    Dob = follower.Dob,
+                    FullName = follower.FullName,
+                    Gender = follower.Gender,
+                    Bio = follower.Bio,
+                    NumberOfCreatedEvents = follower.NumberOfCreatedEvents,
+                    NumberOfFavourites = follower.NumberOfFavourites,
+                    NumberOfFolloweds = follower.NumberOfFolloweds,
+                    NumberOfFollowers = follower.NumberOfFollowers,
+                    FollowingIds = _db.UserFollowers.Where(uf => uf.FollowerId == follower.Id).Select(uf => uf.FollowedId).ToList(),
+                    Status = follower.Status,
+                    Avatar = avatar?.FilePath,
+                    Roles = roles.ToList(),
+                    CreatedAt = follower.CreatedAt,
+                    UpdatedAt = follower.UpdatedAt
+                };
+
+                return Ok(new ApiOkResponse(userVm));
             }
             else
             {
@@ -1379,14 +1429,85 @@ namespace EventHubSolution.BackendServer.Controllers
 
         #region Payments
         [HttpGet("{userId}/payments")]
-        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        //[ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
         public async Task<IActionResult> GetPaymentsByUserId(string userId, [FromQuery] PaymentPaginationFilter filter)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-            var payments = _db.Payments.Where(p => p.UserId.Equals(userId)).ToList();
+            var paymentMethods = (from _paymentMethod in _db.PaymentMethods.ToList()
+                                  join _file in fileStorages
+                                  on _paymentMethod.MethodLogoId equals _file.Id
+                                  into joinedPaymentMethods
+                                  from _joinedPaymentMethod in joinedPaymentMethods
+                                  select new PaymentMethodVm
+                                  {
+                                      Id = _paymentMethod.Id,
+                                      MethodLogo = _joinedPaymentMethod?.FilePath ?? "",
+                                      MethodName = _paymentMethod.MethodName
+                                  }).ToList();
+
+            var methods = (from _userPaymentMethod in _db.UserPaymentMethods.ToList()
+                           join _paymentMethod in paymentMethods
+                           on _userPaymentMethod.MethodId equals _paymentMethod.Id
+                           select new UserPaymentMethodVm
+                           {
+                               Id = _userPaymentMethod.Id,
+                               PaymentAccountNumber = _userPaymentMethod.PaymentAccountNumber,
+                               UserId = _userPaymentMethod.UserId,
+                               MethodId = _paymentMethod.Id,
+                               CheckoutContent = _userPaymentMethod.CheckoutContent,
+                               Method = new PaymentMethodVm
+                               {
+                                   Id = _paymentMethod.Id,
+                                   MethodName = _paymentMethod.MethodName,
+                                   MethodLogo = _paymentMethod.MethodLogo
+                               }
+                           }).ToList();
+
+            var events = (from _event in _db.Events.ToList()
+                          join _file in fileStorages
+                          on _event.CoverImageId equals _file.Id
+                          into joinedEvents
+                          from _joinedEvent in joinedEvents
+                          select new
+                          {
+                              Id = _event.Id,
+                              CoverImage = _joinedEvent?.FilePath ?? "",
+                              Name = _event.Name,
+                              CreatorId = _event.CreatorId,
+                          }).ToList();
+
+            var payments = (from _payment in _db.Payments.ToList()
+                            join _event in events
+                            on _payment.EventId equals _event.Id
+                            join _method in methods
+                            on _payment.UserPaymentMethodId equals _method.Id
+                            select new PaymentVm
+                            {
+                                Id = _payment.Id,
+                                EventId = _event.Id,
+                                Event = new PaymentEventVm
+                                {
+                                    Id = _event.Id,
+                                    CoverImage = _event.CoverImage,
+                                    Name = _event.Name,
+                                    CreatorId = _event.CreatorId
+                                },
+                                CustomerEmail = _payment.CustomerEmail,
+                                CustomerPhone = _payment.CustomerPhone,
+                                CustomerName = _payment.CustomerName,
+                                Discount = _payment.Discount,
+                                Status = _payment.Status,
+                                TicketQuantity = _payment.TicketQuantity,
+                                TotalPrice = _payment.TotalPrice,
+                                UserId = _payment.UserId,
+                                UserPaymentMethodId = _payment.UserPaymentMethodId,
+                                PaymentMethod = _method,
+                                CreatedAt = _payment.CreatedAt,
+                                UpdatedAt = _payment.UpdatedAt,
+                            })
+                            .Where(p => p.UserId == userId)
+                            .ToList();
 
             if (filter.search != null)
             {
@@ -1402,7 +1523,10 @@ namespace EventHubSolution.BackendServer.Controllers
                 _ => payments
             };
 
-            payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
+            if (filter.status != PaymentStatus.ALL)
+            {
+                payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
+            }
 
             var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
 
@@ -1412,28 +1536,9 @@ namespace EventHubSolution.BackendServer.Controllers
                     .Take(filter.size).ToList();
             }
 
-            var paymentVms = payments.Select(p => new PaymentVm()
-            {
-                Id = p.Id,
-                CustomerName = p.CustomerName,
-                CustomerEmail = p.CustomerEmail,
-                CustomerPhone = p.CustomerPhone,
-                Discount = p.Discount,
-                Status = p.Status,
-                EventId = p.EventId,
-                PaymentMethod = (ViewModels.Constants.PaymentMethod)p.PaymentMethod,
-                PaymentSessionId = p.PaymentSessionId,
-                TicketQuantity = p.TicketQuantity,
-                TotalPrice = p.TotalPrice,
-                UserId = p.UserId,
-                PaymentIntentId = p.PaymentIntentId,
-                CreatedAt = p.CreatedAt,
-                UpdatedAt = p.UpdatedAt
-            }).ToList();
-
             var pagination = new Pagination<PaymentVm>
             {
-                Items = paymentVms,
+                Items = payments,
                 Metadata = metadata,
             };
 
@@ -1441,121 +1546,348 @@ namespace EventHubSolution.BackendServer.Controllers
 
             return Ok(new ApiOkResponse(pagination));
         }
-        #endregion
 
-        #region Stripe
-        [HttpPost("{userId}/stripe/create-account")]
-        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
-        public async Task<IActionResult> PostCreateStripeAccount(string userId)
+        [HttpGet("{creatorId}/payments/creator")]
+        //[ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetPaymentsByCreatorId(string creatorId, [FromQuery] PaymentPaginationFilter filter)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-            var account = await _stripeService.CreateStripeAccount(user);
+            var paymentMethods = (from _paymentMethod in _db.PaymentMethods.ToList()
+                                  join _file in fileStorages
+                                  on _paymentMethod.MethodLogoId equals _file.Id
+                                  into joinedPaymentMethods
+                                  from _joinedPaymentMethod in joinedPaymentMethods
+                                  select new PaymentMethodVm
+                                  {
+                                      Id = _paymentMethod.Id,
+                                      MethodLogo = _joinedPaymentMethod?.FilePath ?? "",
+                                      MethodName = _paymentMethod.MethodName
+                                  }).ToList();
 
-            user.AccountId = account.Id;
-            await _userManager.UpdateAsync(user);
-            await _db.SaveChangesAsync();
+            var methods = (from _userPaymentMethod in _db.UserPaymentMethods.ToList()
+                           join _paymentMethod in paymentMethods
+                           on _userPaymentMethod.MethodId equals _paymentMethod.Id
+                           select new UserPaymentMethodVm
+                           {
+                               Id = _userPaymentMethod.Id,
+                               PaymentAccountNumber = _userPaymentMethod.PaymentAccountNumber,
+                               UserId = _userPaymentMethod.UserId,
+                               MethodId = _paymentMethod.Id,
+                               CheckoutContent = _userPaymentMethod.CheckoutContent,
+                               Method = new PaymentMethodVm
+                               {
+                                   Id = _paymentMethod.Id,
+                                   MethodName = _paymentMethod.MethodName,
+                                   MethodLogo = _paymentMethod.MethodLogo
+                               }
+                           }).ToList();
 
-            return Ok(new ApiOkResponse($"Create Stripe account for user {user.Id} successfully!"));
-        }
+            var events = (from _event in _db.Events.ToList()
+                          join _file in fileStorages
+                          on _event.CoverImageId equals _file.Id
+                          into joinedEvents
+                          from _joinedEvent in joinedEvents
+                          select new
+                          {
+                              Id = _event.Id,
+                              CoverImage = _joinedEvent?.FilePath ?? "",
+                              Name = _event.Name,
+                              CreatorId = _event.CreatorId,
+                          }).ToList();
 
-        [HttpPost("{userId}/stripe/create-bank-account")]
-        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
-        public async Task<IActionResult> PostCreateStripeBankAccount(string userId, CreateBankAccountRequest request)
-        {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+            var payments = (from _payment in _db.Payments.ToList()
+                            join _event in events
+                            on _payment.EventId equals _event.Id
+                            join _method in methods
+                            on _payment.UserPaymentMethodId equals _method.Id
+                            select new PaymentVm
+                            {
+                                Id = _payment.Id,
+                                EventId = _event.Id,
+                                Event = new PaymentEventVm
+                                {
+                                    Id = _event.Id,
+                                    CoverImage = _event.CoverImage,
+                                    Name = _event.Name,
+                                    CreatorId = _event.CreatorId
+                                },
+                                CustomerEmail = _payment.CustomerEmail,
+                                CustomerPhone = _payment.CustomerPhone,
+                                CustomerName = _payment.CustomerName,
+                                Discount = _payment.Discount,
+                                Status = _payment.Status,
+                                TicketQuantity = _payment.TicketQuantity,
+                                TotalPrice = _payment.TotalPrice,
+                                UserId = _payment.UserId,
+                                UserPaymentMethodId = _payment.UserPaymentMethodId,
+                                PaymentMethod = _method,
+                                CreatedAt = _payment.CreatedAt,
+                                UpdatedAt = _payment.UpdatedAt,
+                            })
+                            .Where(p => p.Event.CreatorId == creatorId)
+                            .ToList();
 
-            var account = await _stripeService.GetAccount(user.AccountId);
-            if (account == null)
-                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe account yet!"));
-
-
-            var createExternalBankAccountRequest = new CreateExternalBankAccountRequest
+            if (filter.search != null)
             {
-                AccountId = user.AccountId,
-                BankAccountOptions = new AccountBankAccountOptions
-                {
-                    AccountHolderName = request.AccountHolderName,
-                    AccountNumber = request.AccountNumber,
-                    Currency = "usd",
-                    Country = account.Country,
-                    AccountHolderType = BankAccountHolderType.Individual,
-                    RoutingNumber = "110000000",
+                payments = payments.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
+                                               c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
+                                               c.CustomerPhone.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
 
-                }
+            payments = filter.order switch
+            {
+                PageOrder.ASC => payments.OrderBy(c => c.CreatedAt).ToList(),
+                PageOrder.DESC => payments.OrderByDescending(c => c.CreatedAt).ToList(),
+                _ => payments
             };
 
-            var externalBankAccount =
-                await _stripeService.CreateStripeExternalBankAccount(createExternalBankAccountRequest);
+            if (filter.status != PaymentStatus.ALL)
+            {
+                payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
+            }
 
-            user.BankAccountId = externalBankAccount.Id;
-            await _userManager.UpdateAsync(user);
-            await _db.SaveChangesAsync();
+            var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
 
-            return Ok(new ApiOkResponse($"Create Stripe extenal bank account for user {user.Id} successfully!"));
+            if (filter.takeAll == false)
+            {
+                payments = payments.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var pagination = new Pagination<PaymentVm>
+            {
+                Items = payments,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
         }
 
-        [HttpPost("{userId}/stripe/create-bank-card")]
+        [HttpGet("{userId}/payments/accounts")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> GetPaymentAccountsByUser(string userId,
+            [FromQuery] PaginationFilter filter)
+        {
+            // Check cache data
+            var paymentAccounts = new List<PaymentAccountVm>();
+            var cachePaymentAccounts = _cacheService.GetData<IEnumerable<PaymentAccountVm>>($"{CacheKey.PAYMENTACCOUNTS}{userId}");
+            if (cachePaymentAccounts != null && cachePaymentAccounts.Count() > 0)
+                paymentAccounts = cachePaymentAccounts.ToList();
+            else
+            {
+                var fileStorages = await _fileService.GetListFileStoragesAsync();
+
+                var paymentMethods = (from _paymentMethod in _db.PaymentMethods.ToList()
+                                      join _file in fileStorages
+                                      on _paymentMethod.MethodLogoId equals _file.Id
+                                      into joinedPaymentMethods
+                                      from _joinedPaymentMethod in joinedPaymentMethods.DefaultIfEmpty()
+                                      select new PaymentMethodVm
+                                      {
+                                          Id = _paymentMethod.Id,
+                                          MethodLogo = _joinedPaymentMethod?.FilePath ?? "",
+                                          MethodName = _paymentMethod.MethodName
+                                      }).ToList();
+
+                var userPaymentMethods = (from _userPaymentMethod in _db.UserPaymentMethods.ToList()
+                                          join _file in fileStorages
+                                          on _userPaymentMethod.PaymentAccountQRCodeId equals _file.Id
+                                          into joinedUserPaymentMethods
+                                          from _joinedUserPaymentMethod in joinedUserPaymentMethods.DefaultIfEmpty()
+                                          select new UserPaymentMethodVm
+                                          {
+                                              Id = _userPaymentMethod.Id,
+                                              CheckoutContent = _userPaymentMethod.CheckoutContent,
+                                              MethodId = _userPaymentMethod.MethodId,
+                                              PaymentAccountNumber = _userPaymentMethod.PaymentAccountNumber,
+                                              UserId = _userPaymentMethod.UserId,
+                                              PaymentAccountQRCode = _joinedUserPaymentMethod?.FilePath ?? ""
+                                          }).ToList();
+
+                paymentAccounts = (from _userPaymentMethod in userPaymentMethods
+                                   join _paymentMethod in paymentMethods
+                                   on _userPaymentMethod.MethodId equals _paymentMethod.Id
+                                   select new PaymentAccountVm
+                                   {
+                                       Id = _userPaymentMethod.Id,
+                                       UserId = userId,
+                                       MethodId = _userPaymentMethod.MethodId,
+                                       MethodLogo = _paymentMethod.MethodLogo,
+                                       MethodName = _paymentMethod.MethodName,
+                                       PaymentAccountNumber = _userPaymentMethod.PaymentAccountNumber,
+                                       PaymentAccountQRCode = _userPaymentMethod.PaymentAccountQRCode,
+                                       CheckoutContent = _userPaymentMethod.CheckoutContent,
+                                   }).ToList();
+
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<IEnumerable<PaymentAccountVm>>($"{CacheKey.PAYMENTACCOUNTS}{userId}", paymentAccounts, expiryTime);
+            }
+
+
+            if (!filter.search.IsNullOrEmpty())
+            {
+                paymentAccounts = paymentAccounts.Where(c =>
+                    c.MethodName.ToLower().Contains(filter.search.ToLower()) ||
+                    c.PaymentAccountNumber.ToLower().Contains(filter.search.ToLower()) ||
+                    c.CheckoutContent.ToLower().Contains(filter.search.ToLower()))
+                    .ToList();
+            }
+
+            paymentAccounts = filter.order switch
+            {
+                PageOrder.ASC => paymentAccounts.OrderBy(c => c.Id).ToList(),
+                PageOrder.DESC => paymentAccounts.OrderByDescending(c => c.Id).ToList(),
+                _ => paymentAccounts
+            };
+
+            var metadata = new Metadata(paymentAccounts.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.takeAll == false)
+            {
+                paymentAccounts = paymentAccounts.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var pagination = new Pagination<PaymentAccountVm>
+            {
+                Items = paymentAccounts,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
+        }
+
+        [HttpPost("{userId}/payments/accounts")]
         [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
-        public async Task<IActionResult> PostCreateStripeBankCard(string userId)
+        [ApiValidationFilter]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> PostCreatePaymentAccount(string userId,
+            [FromForm] CreatePaymentAccountRequest request)
         {
-            var user = await _userManager.FindByIdAsync(userId);
+            var user = await _userManager.FindByIdAsync(request.UserId);
             if (user == null)
-                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+                return NotFound(new ApiNotFoundResponse($"User with id {request.UserId} is not existed."));
 
-            var account = await _stripeService.GetAccount(user.AccountId);
-            if (account == null)
-                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe account yet!"));
+            var method = await _db.PaymentMethods.FindAsync(request.MethodId);
+            if (method == null)
+                return NotFound(new ApiNotFoundResponse($"Method with id {request.MethodId} is not existed."));
 
-            var bankCard = await _stripeService.CreateStripeCard(account.Id);
+            var paymentAccount = new UserPaymentMethod
+            {
+                Id = Guid.NewGuid().ToString(),
+                MethodId = method.Id,
+                CheckoutContent = request.CheckoutContent,
+                PaymentAccountNumber = request.PaymentAccountNumber,
+                UserId = userId,
+            };
 
-            user.CardId = bankCard.Id;
-            await _userManager.UpdateAsync(user);
-            await _db.SaveChangesAsync();
+            if (request.PaymentAccountQRCode != null)
+            {
+                var paymentAccountQRCode = await _fileService.SaveFileToFileStorageAsync(request.PaymentAccountQRCode, FileContainer.PAYMENTS);
+                paymentAccount.PaymentAccountQRCodeId = paymentAccountQRCode.Id;
+            }
 
-            return Ok(new ApiOkResponse(bankCard));
+            await _db.UserPaymentMethods.AddAsync(paymentAccount);
+
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                _cacheService.RemoveData($"{CacheKey.PAYMENTACCOUNTS}{userId}");
+
+                return CreatedAtAction(nameof(PostCreatePaymentAccount),
+                    new { Id = paymentAccount.Id }, request);
+            }
+            else
+            {
+                return BadRequest(new ApiBadRequestResponse("Failed to create new payment account"));
+            }
         }
 
-        [HttpGet("{userId}/stripe/bank-account")]
-        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
-        public async Task<IActionResult> GetStripeBankAccount(string userId)
+        [HttpPut("{userId}/payments/accounts/{accountId}")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.UPDATE)]
+        [ApiValidationFilter]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> PutUpdatePaymentAccount(string userId, string accountId,
+            [FromForm] CreatePaymentAccountRequest request)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
-
-            var account = await _stripeService.GetAccount(user.AccountId);
+            var account = await _db.UserPaymentMethods.FindAsync(accountId);
             if (account == null)
-                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe account yet!"));
+                return NotFound(new ApiNotFoundResponse($"UserPaymentMethod with id {accountId} is not existed."));
 
-            var bankAccount = await _stripeService.GetExternalAccount(user.AccountId, user.BankAccountId);
-            if (bankAccount == null)
-                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe bank account yet!"));
+            var user = await _userManager.FindByIdAsync(request.UserId);
+            if (user == null)
+                return NotFound(new ApiNotFoundResponse($"User with id {request.UserId} is not existed."));
 
-            return Ok(new ApiOkResponse(bankAccount));
+            var method = await _db.PaymentMethods.FindAsync(request.MethodId);
+            if (method == null)
+                return NotFound(new ApiNotFoundResponse($"Method with id {request.MethodId} is not existed."));
+
+
+            account.MethodId = method.Id;
+            account.CheckoutContent = request.CheckoutContent;
+            account.PaymentAccountNumber = request.PaymentAccountNumber;
+            account.UserId = userId;
+
+            await _fileService.DeleteFileByIdAsync(account.PaymentAccountQRCodeId);
+            if (request.PaymentAccountQRCode != null)
+            {
+                var paymentAccountQRCode = await _fileService.SaveFileToFileStorageAsync(request.PaymentAccountQRCode, FileContainer.PAYMENTS);
+                account.PaymentAccountQRCodeId = paymentAccountQRCode.Id;
+            }
+
+            _db.UserPaymentMethods.Update(account);
+
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                _cacheService.RemoveData($"{CacheKey.PAYMENTACCOUNTS}{userId}");
+                return Ok(new ApiOkResponse(new { Id = account.Id }));
+            }
+            else
+            {
+                return BadRequest(new ApiBadRequestResponse("Failed to update payment account"));
+            }
         }
 
-        [HttpGet("{userId}/stripe/bank-card")]
-        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
-        public async Task<IActionResult> GetStripeBankCard(string userId)
+        [HttpDelete("{userId}/payments/accounts/{accountId}")]
+        [ClaimRequirement(FunctionCode.CONTENT_EVENT, CommandCode.DELETE)]
+        public async Task<IActionResult> DeletePaymentAccount(string userId, string accountId)
         {
+            var account = await _db.UserPaymentMethods.FindAsync(accountId);
+            if (account == null)
+                return NotFound(new ApiNotFoundResponse($"UserPaymentMethod with id {accountId} is not existed."));
+
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
-                return NotFound(new ApiNotFoundResponse($"User with id {userId} does not exist!"));
+                return NotFound(new ApiNotFoundResponse($"User with id {userId} is not existed."));
 
-            var account = await _stripeService.GetAccount(user.AccountId);
-            if (account == null)
-                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe account yet!"));
+            if (user.Id != account.UserId)
+                return BadRequest(new ApiBadRequestResponse($"User with id {userId} is not belong to the account."));
 
-            var card = await _stripeService.GetBankCard(user.AccountId, user.CardId);
-            if (card == null)
-                return NotFound(new ApiNotFoundResponse($"User has not had a Stripe bank card yet!"));
+            await _fileService.DeleteFileByIdAsync(account.PaymentAccountQRCodeId);
 
-            return Ok(new ApiOkResponse(card));
+            _db.UserPaymentMethods.Remove(account);
+
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                _cacheService.RemoveData($"{CacheKey.PAYMENTACCOUNTS}{userId}");
+                return Ok(new ApiOkResponse(new { Id = account.Id }));
+            }
+            else
+            {
+                return BadRequest(new ApiBadRequestResponse("Failed to update payment account"));
+            }
         }
         #endregion
 

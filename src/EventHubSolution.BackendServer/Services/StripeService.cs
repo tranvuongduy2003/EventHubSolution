@@ -122,6 +122,6 @@ namespace EventHubSolution.BackendServer.Services
 
         public async Task<PaymentIntent> GetPaymentIntent(string paymentIntentId) => await _paymentIntentService.GetAsync(paymentIntentId);
 
-        public async Task<PaymentMethod> GetPaymentMethod(string paymentMethodId) => await _paymentMethodService.GetAsync(paymentMethodId);
+        //public async Task<PaymentMethod> GetPaymentMethod(string paymentMethodId) => await _paymentMethodService.GetAsync(paymentMethodId);
     }
 }

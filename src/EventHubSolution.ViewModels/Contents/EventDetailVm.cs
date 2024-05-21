@@ -36,6 +36,8 @@ namespace EventHubSolution.ViewModels.Contents
 
         public List<TicketTypeVm> TicketTypes { get; set; }
 
+        public double AverageRating { get; set; } = 0.0;
+
         public EmailContentVm EmailContent { get; set; }
 
         public bool? IsFavourite { get; set; } = false;

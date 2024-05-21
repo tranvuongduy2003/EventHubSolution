@@ -4,10 +4,10 @@ using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
 using EventHubSolution.BackendServer.Services;
+using EventHubSolution.BackendServer.Services.Interfaces;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.General;
-using EventHubSolution.ViewModels.Stripe;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,12 +23,16 @@ namespace EventHubSolution.BackendServer.Controllers
         private readonly ApplicationDbContext _db;
         private readonly UserManager<User> _userManager;
         private readonly StripeService _stripeService;
+        private readonly ICacheService _cacheService;
+        private readonly IFileStorageService _fileService;
 
-        public PaymentsController(ApplicationDbContext db, UserManager<User> userManager, StripeService stripeService)
+        public PaymentsController(ApplicationDbContext db, UserManager<User> userManager, StripeService stripeService, ICacheService cacheService, IFileStorageService fileService)
         {
             _db = db;
             _userManager = userManager;
             _stripeService = stripeService;
+            _cacheService = cacheService;
+            _fileService = fileService;
         }
 
         [HttpPost("checkout")]
@@ -44,6 +48,10 @@ namespace EventHubSolution.BackendServer.Controllers
             if (eventData == null)
                 return NotFound(new ApiNotFoundResponse($"Event with id {request.EventId} does not exist!"));
 
+            var userPaymentMethod = await _db.UserPaymentMethods.FirstOrDefaultAsync(p => p.Id.Equals(request.UserPaymentMethodId) && p.UserId.Equals(eventData.CreatorId));
+            if (userPaymentMethod == null)
+                return NotFound(new ApiNotFoundResponse($"UserPaymentMethod with id {request.UserPaymentMethodId} does not exist!"));
+
             var payment = new Payment()
             {
                 Id = Guid.NewGuid().ToString(),
@@ -53,8 +61,8 @@ namespace EventHubSolution.BackendServer.Controllers
                 Discount = eventData.Promotion ?? 0.0,
                 Status = PaymentStatus.PENDING,
                 EventId = request.EventId,
-                PaymentMethod = ViewModels.Constants.PaymentMethod.BANKING,
                 UserId = request.UserId,
+                UserPaymentMethodId = request.UserPaymentMethodId,
             };
 
             int ticketQuantity = 0;
@@ -117,30 +125,57 @@ namespace EventHubSolution.BackendServer.Controllers
             payment.Status = PaymentStatus.PAID;
             _db.Payments.Update(payment);
 
-            var paymentItems = await _db.PaymentItems.Where(pi => pi.PaymentId.Equals(paymentId)).ToListAsync();
-            foreach (var paymentItem in paymentItems)
-            {
-                var ticketType = await _db.TicketTypes.FindAsync(paymentItem.TicketTypeId);
-                var maxTicketNumberLength = ticketType.Quantity.ToString().Length;
-                var stringifiedQuantity = ticketType.NumberOfSoldTickets.ToString();
-                var ticketNumber = stringifiedQuantity.PadLeft(maxTicketNumberLength - stringifiedQuantity.Length, '0');
+            // TODO: Create tickets
+            var paymentItems = (from _paymentItem in _db.PaymentItems.ToList()
+                                join _event in _db.Events.ToList()
+                                on _paymentItem.EventId equals _event.Id
+                                where _paymentItem.PaymentId == payment.Id
+                                select new PaymentItemVm
+                                {
+                                    Id = _paymentItem.Id,
+                                    Discount = _paymentItem.Discount,
+                                    EventId = _event.Id,
+                                    EventName = _event.Name,
+                                    Quantity = _paymentItem.Quantity,
+                                    TotalPrice = _paymentItem.TotalPrice,
+                                    PaymentId = _paymentItem.PaymentId,
+                                    TicketTypeId = _paymentItem.TicketTypeId,
+                                    TicketTypeName = _paymentItem.Name,
+                                    UserId = _paymentItem.UserId
+                                }).ToList();
 
-                for (int i = 0; i < paymentItem.Quantity; i++)
+            List<Task> tasks = new List<Task>();
+            foreach (var item in paymentItems)
+            {
+                tasks.Add(Task.Factory.StartNew(async () =>
                 {
-                    var ticket = new Ticket
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        CustomerName = payment.CustomerName,
-                        CustomerEmail = payment.CustomerEmail,
-                        CustomerPhone = payment.CustomerPhone,
-                        EventId = payment.EventId,
-                        PaymentId = paymentId,
-                        TicketTypeId = paymentItem.TicketTypeId,
-                        TicketNo = $"#{ticketNumber}",
-                    };
-                    await _db.Tickets.AddAsync(ticket);
-                }
+                    var ticketType = await _db.TicketTypes.FindAsync(item.TicketTypeId);
+                    ticketType.NumberOfSoldTickets -= item.Quantity;
+                    _db.TicketTypes.Update(ticketType);
+
+                    var ticketGenerator = new Faker<Ticket>()
+                    .RuleFor(e => e.Id, _ => Guid.NewGuid().ToString())
+                    .RuleFor(e => e.CustomerEmail, _ => payment.CustomerEmail)
+                    .RuleFor(e => e.CustomerName, _ => payment.CustomerName)
+                    .RuleFor(e => e.CustomerPhone, _ => payment.CustomerPhone)
+                    .RuleFor(e => e.EventId, _ => payment.EventId)
+                    .RuleFor(e => e.PaymentId, _ => payment.Id)
+                    .RuleFor(e => e.TicketTypeId, _ => item.TicketTypeId)
+                    .RuleFor(e => e.UserId, _ => item.UserId)
+                    .RuleFor(e => e.TicketNo, f => f.Hashids.Encode(
+                        DateTime.Now.Hour,
+                        DateTime.Now.Minute,
+                        DateTime.Now.Second,
+                        DateTime.Now.Millisecond,
+                        DateTime.Now.Microsecond,
+                        DateTime.Now.Day,
+                        DateTime.Now.Month,
+                        DateTime.Now.Year));
+                    var tickets = ticketGenerator.Generate(item.Quantity);
+                    await _db.Tickets.AddRangeAsync(tickets);
+                }));
             }
+            Task.WaitAll(tasks.ToArray());
 
             await _db.SaveChangesAsync();
 
@@ -172,6 +207,37 @@ namespace EventHubSolution.BackendServer.Controllers
             return Ok(new ApiOkResponse("Payment rejected!"));
         }
 
+        [HttpPatch("{paymentId}/status")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.UPDATE)]
+        [ApiValidationFilter]
+        public async Task<IActionResult> PatchUpdatePaymentStatus(string paymentId, [FromBody] UpdatePaymentStatusRequest request)
+        {
+            var payment = await _db.Payments.FindAsync(paymentId);
+            if (payment == null)
+                return NotFound(new ApiNotFoundResponse($"Payment with id {paymentId} does not exist!"));
+
+            if (payment.Status == PaymentStatus.PAID)
+            {
+                var paymentItems = await _db.PaymentItems.Where(pi => pi.PaymentId.Equals(paymentId)).ToListAsync();
+                foreach (var paymentItem in paymentItems)
+                {
+                    var ticketType = await _db.TicketTypes.FindAsync(paymentItem.TicketTypeId);
+                    ticketType.NumberOfSoldTickets -= paymentItem.Quantity;
+                    _db.TicketTypes.Update(ticketType);
+                }
+            }
+
+            payment.Status = request.Status;
+            _db.Payments.Update(payment);
+
+            if (request.Status == PaymentStatus.PAID)
+                await PatchAcceptPayment(paymentId);
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new ApiOkResponse("Payment status updated!"));
+        }
+
         [HttpPost]
         [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
         [ApiValidationFilter]
@@ -186,12 +252,11 @@ namespace EventHubSolution.BackendServer.Controllers
                 Discount = request.Discount,
                 Status = request.Status,
                 EventId = request.EventId,
-                PaymentMethod = request.PaymentMethod,
+                UserPaymentMethodId = request.UserPaymentMethodId,
                 PaymentSessionId = request.PaymentSessionId,
                 TicketQuantity = request.TicketQuantity,
                 TotalPrice = request.TotalPrice,
                 UserId = request.UserId,
-                PaymentIntentId = request.PaymentIntentId
             };
             _db.Payments.Add(payment);
             var result = await _db.SaveChangesAsync();
@@ -246,12 +311,10 @@ namespace EventHubSolution.BackendServer.Controllers
                 Discount = p.Discount,
                 Status = p.Status,
                 EventId = p.EventId,
-                PaymentMethod = (PaymentMethod)p.PaymentMethod,
-                PaymentSessionId = p.PaymentSessionId,
+                UserPaymentMethodId = p.UserPaymentMethodId,
                 TicketQuantity = p.TicketQuantity,
                 TotalPrice = p.TotalPrice,
                 UserId = p.UserId,
-                PaymentIntentId = p.PaymentIntentId,
                 CreatedAt = p.CreatedAt,
                 UpdatedAt = p.UpdatedAt
             }).ToList();
@@ -284,39 +347,28 @@ namespace EventHubSolution.BackendServer.Controllers
                 Discount = payment.Discount,
                 Status = payment.Status,
                 EventId = payment.EventId,
-                PaymentMethod = (PaymentMethod)payment.PaymentMethod,
-                PaymentSessionId = payment.PaymentSessionId,
+                UserPaymentMethodId = payment.UserPaymentMethodId,
                 TicketQuantity = payment.TicketQuantity,
                 TotalPrice = payment.TotalPrice,
                 UserId = payment.UserId,
-                PaymentIntentId = payment.PaymentIntentId,
                 CreatedAt = payment.CreatedAt,
                 UpdatedAt = payment.UpdatedAt
             };
             return Ok(new ApiOkResponse(paymentVm));
         }
 
-        [HttpPut("{id}")]
+        [HttpPatch("{id}")]
         [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.UPDATE)]
         [ApiValidationFilter]
-        public async Task<IActionResult> PutPayment(string id, [FromBody] PaymentCreateRequest request)
+        public async Task<IActionResult> PatchPayment(string id, [FromBody] PaymentUpdateRequest request)
         {
             var payment = await _db.Payments.FindAsync(id);
             if (payment == null)
-                return NotFound(new ApiNotFoundResponse(""));
+                return NotFound(new ApiNotFoundResponse($"Payment with id {id} not found!"));
 
             payment.CustomerName = request.CustomerName;
             payment.CustomerEmail = request.CustomerEmail;
             payment.CustomerPhone = request.CustomerPhone;
-            payment.Discount = request.Discount;
-            payment.Status = request.Status;
-            payment.EventId = request.EventId;
-            payment.PaymentMethod = request.PaymentMethod;
-            payment.PaymentSessionId = request.PaymentSessionId;
-            payment.TicketQuantity = request.TicketQuantity;
-            payment.TotalPrice = request.TotalPrice;
-            payment.UserId = request.UserId;
-            payment.PaymentIntentId = request.PaymentIntentId;
 
             _db.Payments.Update(payment);
             var result = await _db.SaveChangesAsync();
@@ -350,138 +402,76 @@ namespace EventHubSolution.BackendServer.Controllers
                     Discount = payment.Discount,
                     Status = payment.Status,
                     EventId = payment.EventId,
-                    PaymentMethod = (PaymentMethod)payment.PaymentMethod,
-                    PaymentSessionId = payment.PaymentSessionId,
+                    UserPaymentMethodId = payment.UserPaymentMethodId,
                     TicketQuantity = payment.TicketQuantity,
                     TotalPrice = payment.TotalPrice,
-                    UserId = payment.UserId,
-                    PaymentIntentId = payment.PaymentIntentId
+                    UserId = payment.UserId
                 };
                 return Ok(new ApiOkResponse(paymentvm));
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }
 
-        [HttpPost("create-stripe-session")]
-        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.CREATE)]
-        [ApiValidationFilter]
-        public async Task<IActionResult> PostCreateStripeSession([FromBody] CreatePaymentSessionRequest request)
+        [HttpGet("payment-methods")]
+        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        public async Task<IActionResult> GetPaymentMethods([FromQuery] PaginationFilter filter)
         {
-            var payment = await _db.Payments.FindAsync(request.PaymentId);
-            if (payment == null)
-                return NotFound(new ApiNotFoundResponse($"Payment with id {request.PaymentId} does not exist!"));
-
-            var paymentItems = (from _paymentItem in _db.PaymentItems.ToList()
-                                join _event in _db.Events.ToList()
-                                on _paymentItem.EventId equals _event.Id
-                                where _paymentItem.PaymentId == payment.Id
-                                select new PaymentItemVm
-                                {
-                                    Id = _paymentItem.Id,
-                                    Discount = _paymentItem.Discount,
-                                    EventId = _event.Id,
-                                    EventName = _event.Name,
-                                    Quantity = _paymentItem.Quantity,
-                                    TotalPrice = _paymentItem.TotalPrice,
-                                    PaymentId = _paymentItem.PaymentId,
-                                    TicketTypeId = _paymentItem.TicketTypeId,
-                                    TicketTypeName = _paymentItem.Name,
-                                    UserId = _paymentItem.UserId
-                                }).ToList();
-
-            var sessionRequest = new CreateStripeSessionRequest
-            {
-                ApprovedUrl = request.ApprovedUrl,
-                CancelUrl = request.CancelUrl,
-                Items = paymentItems,
-            };
-
-            var session = await _stripeService.CreateStripeSession(sessionRequest);
-
-            request.StripeSessionUrl = session.Url;
-
-            payment.PaymentSessionId = session.Id;
-            _db.Payments.Update(payment);
-
-            await _db.SaveChangesAsync();
-
-            return Ok(new ApiOkResponse(request));
-        }
-
-        [HttpPost("{paymentId}/validate-stripe-session")]
-        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.UPDATE)]
-        [ApiValidationFilter]
-        public async Task<IActionResult> PostValidateStripeSession(string paymentId)
-        {
-            var payment = await _db.Payments.FindAsync(paymentId);
-            if (payment == null)
-                return NotFound(new ApiNotFoundResponse($"Payment with id {paymentId} does not exist!"));
-
-            var session = await _stripeService.GetSession(payment.PaymentSessionId);
-            var paymentIntent = await _stripeService.GetPaymentIntent(session.PaymentIntentId);
-
-            if (paymentIntent.Status == "succeeded")
-            {
-                // Then payment was successful
-                payment.PaymentIntentId = paymentIntent.Id;
-                payment.Status = PaymentStatus.PAID;
-
-                _db.Payments.Update(payment);
-
-                // TODO: Create tickets
-                var paymentItems = (from _paymentItem in _db.PaymentItems.ToList()
-                                    join _event in _db.Events.ToList()
-                                    on _paymentItem.EventId equals _event.Id
-                                    where _paymentItem.PaymentId == payment.Id
-                                    select new PaymentItemVm
-                                    {
-                                        Id = _paymentItem.Id,
-                                        Discount = _paymentItem.Discount,
-                                        EventId = _event.Id,
-                                        EventName = _event.Name,
-                                        Quantity = _paymentItem.Quantity,
-                                        TotalPrice = _paymentItem.TotalPrice,
-                                        PaymentId = _paymentItem.PaymentId,
-                                        TicketTypeId = _paymentItem.TicketTypeId,
-                                        TicketTypeName = _paymentItem.Name,
-                                        UserId = _paymentItem.UserId
-                                    }).ToList();
-
-                List<Task> tasks = new List<Task>();
-                foreach (var item in paymentItems)
-                {
-                    tasks.Add(Task.Factory.StartNew(async () =>
-                    {
-                        var ticketGenerator = new Faker<Ticket>()
-                        .RuleFor(e => e.Id, _ => Guid.NewGuid().ToString())
-                        .RuleFor(e => e.CustomerEmail, _ => payment.CustomerEmail)
-                        .RuleFor(e => e.CustomerName, _ => payment.CustomerName)
-                        .RuleFor(e => e.CustomerPhone, _ => payment.CustomerPhone)
-                        .RuleFor(e => e.EventId, _ => payment.EventId)
-                        .RuleFor(e => e.PaymentId, _ => payment.Id)
-                        .RuleFor(e => e.TicketTypeId, _ => item.TicketTypeId)
-                        .RuleFor(e => e.UserId, _ => item.UserId)
-                        .RuleFor(e => e.TicketNo, f => f.Hashids.Encode(
-                            DateTime.Now.Hour,
-                            DateTime.Now.Minute,
-                            DateTime.Now.Second,
-                            DateTime.Now.Millisecond,
-                            DateTime.Now.Microsecond,
-                            DateTime.Now.Day,
-                            DateTime.Now.Month,
-                            DateTime.Now.Year));
-                        var tickets = ticketGenerator.Generate(item.Quantity);
-                        await _db.Tickets.AddRangeAsync(tickets);
-                    }));
-                }
-                Task.WaitAll(tasks.ToArray());
-            }
+            // Check cache data
+            var paymentMethods = new List<PaymentMethodVm>();
+            var cachePaymentMethods = _cacheService.GetData<IEnumerable<PaymentMethodVm>>(CacheKey.PAYMENTMETHODS);
+            if (cachePaymentMethods != null && cachePaymentMethods.Count() > 0)
+                paymentMethods = cachePaymentMethods.ToList();
             else
             {
-                payment.Status = PaymentStatus.REJECTED;
+                var fileStorages = await _fileService.GetListFileStoragesAsync();
+
+                paymentMethods = (from _paymentMethod in _db.PaymentMethods.ToList()
+                                  join _file in fileStorages
+                                  on _paymentMethod.MethodLogoId equals _file.Id
+                                  into joinedPaymentMethods
+                                  from _joinedPaymentMethod in joinedPaymentMethods.DefaultIfEmpty()
+                                  select new PaymentMethodVm
+                                  {
+                                      Id = _paymentMethod.Id,
+                                      MethodLogo = _joinedPaymentMethod?.FilePath ?? "",
+                                      MethodName = _paymentMethod.MethodName
+                                  }).ToList();
+
+                // Set expiry time
+                var expiryTime = DateTimeOffset.Now.AddMinutes(45);
+                _cacheService.SetData<IEnumerable<PaymentMethodVm>>(CacheKey.PAYMENTMETHODS, paymentMethods, expiryTime);
             }
 
-            return Ok(new ApiOkResponse());
+
+            if (!filter.search.IsNullOrEmpty())
+            {
+                paymentMethods = paymentMethods.Where(c => c.MethodName.ToLower().Contains(filter.search.ToLower())).ToList();
+            }
+
+            paymentMethods = filter.order switch
+            {
+                PageOrder.ASC => paymentMethods.OrderBy(c => c.Id).ToList(),
+                PageOrder.DESC => paymentMethods.OrderByDescending(c => c.Id).ToList(),
+                _ => paymentMethods
+            };
+
+            var metadata = new Metadata(paymentMethods.Count(), filter.page, filter.size, filter.takeAll);
+
+            if (filter.takeAll == false)
+            {
+                paymentMethods = paymentMethods.Skip((filter.page - 1) * filter.size)
+                    .Take(filter.size).ToList();
+            }
+
+            var pagination = new Pagination<PaymentMethodVm>
+            {
+                Items = paymentMethods,
+                Metadata = metadata,
+            };
+
+            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+
+            return Ok(new ApiOkResponse(pagination));
         }
 
         #region Tickets

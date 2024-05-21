@@ -26,7 +26,7 @@ namespace EventHubSolution.BackendServer.Hubs
 
         public async Task TestConnection()
         {
-            await Clients.Group(Context.ConnectionId).SendAsync("TestConnection", "Connect successfully!");
+            await Clients.All.SendAsync("TestConnection", "Connect successfully!");
         }
 
         //[ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.CREATE)]

@@ -20,7 +20,6 @@ public class EmailService : IEmailService
         logger.LogInformation("Create EmailService");
     }
 
-    // Gửi email, theo nội dung trong mailContent
     public async Task SendMail(MailContent mailContent)
     {
         var email = new MimeMessage();

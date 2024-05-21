@@ -9,6 +9,8 @@ public class PaymentVm
 
     public string EventId { get; set; }
 
+    public PaymentEventVm Event { get; set; }
+
     public int TicketQuantity { get; set; } = 0;
 
     public string UserId { get; set; }
@@ -26,12 +28,9 @@ public class PaymentVm
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public PaymentStatus Status { get; set; }
 
-    [JsonConverter(typeof(JsonStringEnumConverter))]
-    public PaymentMethod PaymentMethod { get; set; }
+    public string UserPaymentMethodId { get; set; }
 
-    public string PaymentIntentId { get; set; }
-
-    public string PaymentSessionId { get; set; }
+    public UserPaymentMethodVm PaymentMethod { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

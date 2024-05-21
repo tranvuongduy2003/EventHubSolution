@@ -12,6 +12,8 @@
 
         public string UserId { get; set; }
 
+        public string UserPaymentMethodId { get; set; }
+
         public List<CheckoutItemVm> Items { get; set; } = new();
     }
 }

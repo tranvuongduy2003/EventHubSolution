@@ -4,7 +4,10 @@ using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.ViewModels.Constants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Extensions;
+using Event = EventHubSolution.BackendServer.Data.Entities.Event;
 using Function = EventHubSolution.BackendServer.Data.Entities.Function;
+using PaymentMethod = EventHubSolution.BackendServer.Data.Entities.PaymentMethod;
+using Review = EventHubSolution.BackendServer.Data.Entities.Review;
 
 namespace EventHubSolution.BackendServer.Data
 {
@@ -35,6 +38,7 @@ namespace EventHubSolution.BackendServer.Data
             SeedCommands().Wait();
             SeedPermission().Wait();
             SeedCategories().Wait();
+            SeedPaymentMethods().Wait();
             //SeedEvents().Wait();
             //SeedReviews().Wait();
         }
@@ -344,6 +348,54 @@ namespace EventHubSolution.BackendServer.Data
                 }
 
                 _context.Categories.AddRange(categories);
+
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        private async Task SeedPaymentMethods()
+        {
+            if (!_context.PaymentMethods.Any())
+            {
+                #region Categories Data
+                // WARNING: Must not change the items' order, just add more!
+                var bankNames = new List<string> { "ACB", "Agribank", "BIDV", "HDBank", "MBBank", "Momo", "MSB", "OceanBank", "Sacombank", "SCB", "SeABank", "SHB", "Techcombank", "TPBank", "Vietcombank", "Vietinbank", "VPBank", "ZaloPay" };
+
+                var icons = new List<FileStorage>()
+                {
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "acb.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/acb.png?sp=r&st=2024-05-14T09:26:36Z&se=2024-05-14T17:26:36Z&sv=2022-11-02&sr=b&sig=qY57vVOpbLW3VMhyJajAlg8%2Ff2OK0DQOKMQD3kRhWts%3D", FileSize = 1761 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "agribank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/agribank.png?sp=r&st=2024-05-14T09:26:54Z&se=2024-05-14T17:26:54Z&sv=2022-11-02&sr=b&sig=XOC6pGKHrzjHKdMLgCBPiaUMTi6p%2F%2FZRtjdeANRn%2Bz8%3D", FileSize = 4375 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "bidv.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/bidv.png?sp=r&st=2024-05-14T09:27:08Z&se=2024-05-14T17:27:08Z&sv=2022-11-02&sr=b&sig=E8qLtCkDQf1Akb3XQQc9UjtwbhxB8gpzCV17rxTG%2B5M%3D", FileSize = 3203 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "hdbank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/hdbank.png?sp=r&st=2024-05-14T09:27:24Z&se=2024-05-14T17:27:24Z&sv=2022-11-02&sr=b&sig=Kx0IioXDWWjPBCFU2AETz5VgpfqpYSdoOiI575dGh8g%3D", FileSize = 3944 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "mbb.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/mbb.png?sp=r&st=2024-05-14T09:27:44Z&se=2024-05-14T17:27:44Z&sv=2022-11-02&sr=b&sig=nyZpiO7z%2FYU08qeCJWxqGJNMSGZ7kluKf915X79WnJU%3D", FileSize = 4407 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "momo.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/momo.png?sp=r&st=2024-05-14T09:28:00Z&se=2024-05-14T17:28:00Z&sv=2022-11-02&sr=b&sig=a9uXIMkoPkATHalLVE%2FZFzwYSTuEWX%2FdeCxrbXrW5nU%3D", FileSize = 2712 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "msb.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/msb.png?sp=r&st=2024-05-14T09:28:17Z&se=2024-05-14T17:28:17Z&sv=2022-11-02&sr=b&sig=9oagSF1ULUN3dIhsZr5BzDxEnR%2BM156phj6xGDSHO1s%3D", FileSize = 4229 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "oceanbank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/oceanbank.png?sp=r&st=2024-05-14T09:28:38Z&se=2024-05-14T17:28:38Z&sv=2022-11-02&sr=b&sig=jzRy%2FMHzFSxMTF9gKjN8%2FbnzaAcJVeJBv81Yzml6lWE%3D", FileSize = 4505 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "sacombank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/sacombank.png?sp=r&st=2024-05-14T09:28:54Z&se=2024-05-14T17:28:54Z&sv=2022-11-02&sr=b&sig=5oT00ylfxc%2FuS9D4j1BldQzyi7wDD3ptRgFbE8R0HXQ%3D", FileSize = 4161 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "scb.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/scb.png?sp=r&st=2024-05-14T09:29:07Z&se=2024-05-14T17:29:07Z&sv=2022-11-02&sr=b&sig=upYO0NKivoGbi%2FyfU%2BuBrJPD%2BXBO2L1XxpjCV43MjwQ%3D", FileSize = 2431 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "seabank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/seabank.png?sp=r&st=2024-05-14T09:29:23Z&se=2024-05-14T17:29:23Z&sv=2022-11-02&sr=b&sig=JcKkdvXQZ4RZigkVbsD09wKsk6akd7IqHnjwH9fIWV0%3D", FileSize = 4635 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "shb.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/shb.png?sp=r&st=2024-05-14T09:29:37Z&se=2024-05-14T17:29:37Z&sv=2022-11-02&sr=b&sig=pkBOYI4U3fUDF8LtyKwDKg%2FbLP8kicn79uA%2FEZxdi9k%3D", FileSize = 3683 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "tcb.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/tcb.png?sp=r&st=2024-05-14T09:29:54Z&se=2024-05-14T17:29:54Z&sv=2022-11-02&sr=b&sig=Tc90anLMq%2BFxQ0h%2Bn%2BV8iqLIIRWAFFxv6%2BBfCdd8LYI%3D", FileSize = 2404 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "tpbank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/tpbank.png?sp=r&st=2024-05-14T09:30:07Z&se=2024-05-14T17:30:07Z&sv=2022-11-02&sr=b&sig=XpbaI2gXUAXM1sbEVANbXxp0IxIBdC86t9qCSgaIkjw%3D", FileSize = 2832 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "vietcombank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/vietcombank.png?sp=r&st=2024-05-14T09:30:19Z&se=2024-05-14T17:30:19Z&sv=2022-11-02&sr=b&sig=DB2xzBtfu3YceSCRJ18DiA4u6fNx4KaKviDx1d3rcW0%3D", FileSize = 2344 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "vietinbank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/vietinbank.png?sp=r&st=2024-05-14T09:30:37Z&se=2024-05-14T17:30:37Z&sv=2022-11-02&sr=b&sig=1smGwC9173bZ4fp2GYm6FGnszCvIjKmtH7UHEmQ0iPQ%3D", FileSize = 860 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "vpbank.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/vpbank.png?sp=r&st=2024-05-14T09:30:52Z&se=2024-05-14T17:30:52Z&sv=2022-11-02&sr=b&sig=bgHZEOJ1qr914PzudzIMpyCpl%2BjdKErLOwXdo1GMR%2Fo%3D", FileSize = 2991 },
+                    new FileStorage() { Id = Guid.NewGuid().ToString(), FileContainer = FileContainer.BANKS, FileName = "zalopay.png", FileType = "image/png", FilePath = "https://eventhubazureblobstorage.blob.core.windows.net/files/banks/zalopay.png?sp=r&st=2024-05-14T09:31:06Z&se=2024-05-14T17:31:06Z&sv=2022-11-02&sr=b&sig=V5budADtln%2BgliRJaglu2zdZnZq7KcHAogl33Lc8aEw%3D", FileSize = 2197 },
+                };
+                _context.FileStorages.AddRange(icons);
+                #endregion
+
+                var paymentMethods = new List<PaymentMethod>();
+                for (int i = 0; i < bankNames.Count; i++)
+                {
+                    var method = new PaymentMethod
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        MethodLogoId = icons[i].Id,
+                        MethodName = bankNames[i]
+                    };
+                    _context.PaymentMethods.Add(method);
+                }
 
                 await _context.SaveChangesAsync();
             }

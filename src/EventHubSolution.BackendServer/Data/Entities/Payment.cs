@@ -57,9 +57,11 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public PaymentStatus Status { get; set; }
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public PaymentMethod? PaymentMethod { get; set; }
 
-        public string? PaymentIntentId { get; set; }
+        [Required]
+        [MaxLength(50)]
+        [Column(TypeName = "varchar(50)")]
+        public string UserPaymentMethodId { get; set; }
 
         public string? PaymentSessionId { get; set; }
 
@@ -75,6 +77,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [NotMapped]
         [ForeignKey("UserId")]
         public virtual User User { get; set; } = null!;
+
+        [NotMapped]
+        [ForeignKey("UserPaymentMethodId")]
+        public virtual UserPaymentMethod UserPaymentMethod { get; set; } = null!;
 
         [NotMapped]
         public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();

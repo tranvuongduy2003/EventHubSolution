@@ -37,10 +37,10 @@ public class PaymentCreateRequestValidator : AbstractValidator<PaymentCreateRequ
 
         RuleFor(x => x.Status).NotEmpty().WithMessage("Status is required");
 
-        RuleFor(x => x.PaymentMethod).NotEmpty().WithMessage("Payment method is required");
+        RuleFor(x => x.UserPaymentMethodId).NotEmpty().WithMessage("UserPaymentMethodId is required")
+            .MaximumLength(50).WithMessage("UserPaymentMethodId cannot over limit 50 characters");
 
-        RuleFor(x => x.PaymentIntentId).NotEmpty().WithMessage("PaymentIntentId is required");
-
-        RuleFor(x => x.PaymentSessionId).NotEmpty().WithMessage("PaymentSessionId is required");
+        RuleFor(x => x.PaymentSessionId).NotEmpty().WithMessage("PaymentSessionId is required")
+            .MaximumLength(50).WithMessage("PaymentSessionId cannot over limit 50 characters");
     }
 }

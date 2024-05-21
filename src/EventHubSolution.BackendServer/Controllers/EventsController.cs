@@ -808,12 +808,12 @@ namespace EventHubSolution.BackendServer.Controllers
                 .Join(ids, _event => _event.Id, id => id, (_event, id) => _event)
                 .Where(e => e.IsTrash == false && e.CreatorId.Equals(user.Id));
 
-            await events.ExecuteUpdateAsync(setters => setters.SetProperty(e => e.IsTrash, true));
+            var result = await events.ExecuteUpdateAsync(setters => setters.SetProperty(e => e.IsTrash, true));
 
             user.NumberOfCreatedEvents -= events.Count();
             await _userManager.UpdateAsync(user);
 
-            var result = await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync();
 
             ids.ForEach(id => _cacheService.RemoveData($"{CacheKey.EVENT}{id}"));
             _cacheService.RemoveData(CacheKey.EVENTS);
@@ -843,12 +843,12 @@ namespace EventHubSolution.BackendServer.Controllers
                 .Join(ids, _event => _event.Id, id => id, (_event, id) => _event)
                 .Where(e => e.IsTrash == true && e.CreatorId.Equals(user.Id));
 
-            await events.ExecuteUpdateAsync(setters => setters.SetProperty(e => e.IsTrash, false));
+            var result = await events.ExecuteUpdateAsync(setters => setters.SetProperty(e => e.IsTrash, false));
 
             user.NumberOfCreatedEvents += events.Count();
             await _userManager.UpdateAsync(user);
 
-            var result = await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync();
 
             ids.ForEach(id => _cacheService.RemoveData($"{CacheKey.EVENT}{id}"));
             _cacheService.RemoveData(CacheKey.EVENTS);
@@ -1414,130 +1414,130 @@ namespace EventHubSolution.BackendServer.Controllers
         }
         #endregion
 
-        #region Payments
-        [HttpGet("{id}/payments")]
-        [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
-        public async Task<IActionResult> GetPaymentsByEventId(string id, [FromQuery] PaymentPaginationFilter filter)
-        {
-            var eventData = await _db.Events.FindAsync(id);
-            if (eventData == null || eventData.IsTrash == true)
-                return NotFound(new ApiNotFoundResponse($"Event with id {id} does not exist!"));
+        //#region Payments
+        //[HttpGet("{id}/payments")]
+        //[ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
+        //public async Task<IActionResult> GetPaymentsByEventId(string id, [FromQuery] PaymentPaginationFilter filter)
+        //{
+        //    var eventData = await _db.Events.FindAsync(id);
+        //    if (eventData == null || eventData.IsTrash == true)
+        //        return NotFound(new ApiNotFoundResponse($"Event with id {id} does not exist!"));
 
-            var payments = _db.Payments.Where(p => p.EventId.Equals(id)).ToList();
+        //    var payments = _db.Payments.Where(p => p.EventId.Equals(id)).ToList();
 
-            if (filter.search != null)
-            {
-                payments = payments.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
-                                               c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
-                                               c.CustomerPhone.ToLower().Contains(filter.search.ToLower())).ToList();
-            }
+        //    if (filter.search != null)
+        //    {
+        //        payments = payments.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
+        //                                       c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
+        //                                       c.CustomerPhone.ToLower().Contains(filter.search.ToLower())).ToList();
+        //    }
 
-            payments = filter.order switch
-            {
-                PageOrder.ASC => payments.OrderBy(c => c.CreatedAt).ToList(),
-                PageOrder.DESC => payments.OrderByDescending(c => c.CreatedAt).ToList(),
-                _ => payments
-            };
+        //    payments = filter.order switch
+        //    {
+        //        PageOrder.ASC => payments.OrderBy(c => c.CreatedAt).ToList(),
+        //        PageOrder.DESC => payments.OrderByDescending(c => c.CreatedAt).ToList(),
+        //        _ => payments
+        //    };
 
-            payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
+        //    payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
 
-            var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
+        //    var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
 
-            if (filter.takeAll == false)
-            {
-                payments = payments.Skip((filter.page - 1) * filter.size)
-                    .Take(filter.size).ToList();
-            }
+        //    if (filter.takeAll == false)
+        //    {
+        //        payments = payments.Skip((filter.page - 1) * filter.size)
+        //            .Take(filter.size).ToList();
+        //    }
 
-            var paymentVms = payments.Select(p => new PaymentVm()
-            {
-                Id = p.Id,
-                CustomerName = p.CustomerName,
-                CustomerEmail = p.CustomerEmail,
-                CustomerPhone = p.CustomerPhone,
-                Discount = p.Discount,
-                Status = p.Status,
-                EventId = p.EventId,
-                PaymentMethod = (PaymentMethod)p.PaymentMethod,
-                PaymentSessionId = p.PaymentSessionId,
-                TicketQuantity = p.TicketQuantity,
-                TotalPrice = p.TotalPrice,
-                UserId = p.UserId,
-                PaymentIntentId = p.PaymentIntentId,
-                CreatedAt = p.CreatedAt,
-                UpdatedAt = p.UpdatedAt
-            }).ToList();
+        //    var paymentVms = payments.Select(p => new PaymentVm()
+        //    {
+        //        Id = p.Id,
+        //        CustomerName = p.CustomerName,
+        //        CustomerEmail = p.CustomerEmail,
+        //        CustomerPhone = p.CustomerPhone,
+        //        Discount = p.Discount,
+        //        Status = p.Status,
+        //        EventId = p.EventId,
+        //        PaymentMethod = (PaymentMethod)p.PaymentMethod,
+        //        PaymentSessionId = p.PaymentSessionId,
+        //        TicketQuantity = p.TicketQuantity,
+        //        TotalPrice = p.TotalPrice,
+        //        UserId = p.UserId,
+        //        PaymentIntentId = p.PaymentIntentId,
+        //        CreatedAt = p.CreatedAt,
+        //        UpdatedAt = p.UpdatedAt
+        //    }).ToList();
 
-            var pagination = new Pagination<PaymentVm>
-            {
-                Items = paymentVms,
-                Metadata = metadata,
-            };
+        //    var pagination = new Pagination<PaymentVm>
+        //    {
+        //        Items = paymentVms,
+        //        Metadata = metadata,
+        //    };
 
-            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+        //    Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(new ApiOkResponse(pagination));
-        }
-        #endregion
+        //    return Ok(new ApiOkResponse(pagination));
+        //}
+        //#endregion
 
-        #region Tickets
-        [HttpGet("{id}/tickets")]
-        [ClaimRequirement(FunctionCode.CONTENT_TICKET, CommandCode.VIEW)]
-        public async Task<IActionResult> GetTicketsByEventId(string id, [FromQuery] PaginationFilter filter)
-        {
-            var eventData = await _db.Events.FindAsync(id);
-            if (eventData == null || eventData.IsTrash == true)
-                return NotFound(new ApiNotFoundResponse($"Event with id {id} does not exist!"));
+        //#region Tickets
+        //[HttpGet("{id}/tickets")]
+        //[ClaimRequirement(FunctionCode.CONTENT_TICKET, CommandCode.VIEW)]
+        //public async Task<IActionResult> GetTicketsByEventId(string id, [FromQuery] PaginationFilter filter)
+        //{
+        //    var eventData = await _db.Events.FindAsync(id);
+        //    if (eventData == null || eventData.IsTrash == true)
+        //        return NotFound(new ApiNotFoundResponse($"Event with id {id} does not exist!"));
 
-            var tickets = _db.Tickets.Where(t => t.EventId == id).ToList();
+        //    var tickets = _db.Tickets.Where(t => t.EventId == id).ToList();
 
-            if (!filter.search.IsNullOrEmpty())
-            {
-                tickets = tickets.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
-                                             c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
-                                             c.CustomerPhone.ToLower().Contains(filter.search.ToLower())
-                ).ToList();
-            }
+        //    if (!filter.search.IsNullOrEmpty())
+        //    {
+        //        tickets = tickets.Where(c => c.CustomerName.ToLower().Contains(filter.search.ToLower()) ||
+        //                                     c.CustomerEmail.ToLower().Contains(filter.search.ToLower()) ||
+        //                                     c.CustomerPhone.ToLower().Contains(filter.search.ToLower())
+        //        ).ToList();
+        //    }
 
-            tickets = filter.order switch
-            {
-                PageOrder.ASC => tickets.OrderBy(c => c.CreatedAt).ToList(),
-                PageOrder.DESC => tickets.OrderByDescending(c => c.CreatedAt).ToList(),
-                _ => tickets
-            };
+        //    tickets = filter.order switch
+        //    {
+        //        PageOrder.ASC => tickets.OrderBy(c => c.CreatedAt).ToList(),
+        //        PageOrder.DESC => tickets.OrderByDescending(c => c.CreatedAt).ToList(),
+        //        _ => tickets
+        //    };
 
-            var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
+        //    var metadata = new Metadata(tickets.Count(), filter.page, filter.size, filter.takeAll);
 
-            if (filter.takeAll == false)
-            {
-                tickets = tickets.Skip((filter.page - 1) * filter.size)
-                    .Take(filter.size).ToList();
-            }
+        //    if (filter.takeAll == false)
+        //    {
+        //        tickets = tickets.Skip((filter.page - 1) * filter.size)
+        //            .Take(filter.size).ToList();
+        //    }
 
-            var ticketVms = tickets.Select(t => new TicketVm()
-            {
-                Id = t.Id,
-                EventId = t.EventId,
-                CustomerName = t.CustomerName,
-                CustomerPhone = t.CustomerPhone,
-                CustomerEmail = t.CustomerEmail,
-                Status = t.Status,
-                PaymentId = t.PaymentId,
-                TicketTypeId = t.TicketTypeId,
-                CreatedAt = t.CreatedAt,
-                UpdatedAt = t.UpdatedAt
-            }).ToList();
+        //    var ticketVms = tickets.Select(t => new TicketVm()
+        //    {
+        //        Id = t.Id,
+        //        EventId = t.EventId,
+        //        CustomerName = t.CustomerName,
+        //        CustomerPhone = t.CustomerPhone,
+        //        CustomerEmail = t.CustomerEmail,
+        //        Status = t.Status,
+        //        PaymentId = t.PaymentId,
+        //        TicketTypeId = t.TicketTypeId,
+        //        CreatedAt = t.CreatedAt,
+        //        UpdatedAt = t.UpdatedAt
+        //    }).ToList();
 
-            var pagination = new Pagination<TicketVm>
-            {
-                Items = ticketVms,
-                Metadata = metadata,
-            };
+        //    var pagination = new Pagination<TicketVm>
+        //    {
+        //        Items = ticketVms,
+        //        Metadata = metadata,
+        //    };
 
-            Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
+        //    Response.Headers.Append("X-Pagination", JsonConvert.SerializeObject(metadata));
 
-            return Ok(new ApiOkResponse(pagination));
-        }
-        #endregion
+        //    return Ok(new ApiOkResponse(pagination));
+        //}
+        //#endregion
     }
 }

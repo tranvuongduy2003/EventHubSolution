@@ -31,5 +31,9 @@
         public const string CONVERSATION = "CONVERSATION";
         public const string MESSAGES = "MESSAGES";
         public const string MESSAGE = "MESSAGE";
+        public const string PAYMENTACCOUNTS = "PAYMENTACCOUNTS";
+        public const string PAYMENTACCOUNT = "PAYMENTACCOUNT";
+        public const string PAYMENTMETHODS = "PAYMENTMETHODS";
+        public const string PAYMENTMETHOD = "PAYMENTACCOUNT";
     }
 }

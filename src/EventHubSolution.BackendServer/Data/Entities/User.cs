@@ -57,12 +57,6 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Range(0, Double.PositiveInfinity)]
         public int? NumberOfCreatedEvents { get; set; } = 0;
 
-        public string? CardId { get; set; }
-
-        public string? AccountId { get; set; }
-
-        public string? BankAccountId { get; set; }
-
         public DateTime CreatedAt { get; set; }
 
         public DateTime? UpdatedAt { get; set; }
@@ -97,5 +91,8 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [NotMapped]
         public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
+
+        [NotMapped]
+        public virtual ICollection<UserPaymentMethod> UserPaymentMethods { get; set; } = new List<UserPaymentMethod>();
     }
 }

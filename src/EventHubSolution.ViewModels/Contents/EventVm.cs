@@ -35,6 +35,8 @@ namespace EventHubSolution.ViewModels.Contents
 
         public List<CategoryVm> Categories { get; set; }
 
+        public double AverageRating { get; set; } = 0.0;
+
         public double Promotion { get; set; } = 0;
 
         public EventStatus Status { get; set; }
