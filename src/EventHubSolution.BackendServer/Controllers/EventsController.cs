@@ -322,12 +322,8 @@ namespace EventHubSolution.BackendServer.Controllers
                             .Select(groupedEvent =>
                             {
                                 var eventVm = groupedEvent.Key;
-                                eventVm.AverageRating =
-                                    groupedEvent
-                                        .Where(e => e._joinedReviewEvent != null)
-                                        .Sum(e => e._joinedReviewEvent.Rate) /
-                                    groupedEvent
-                                        .Count(e => e._joinedReviewEvent != null);
+                                var reviews = groupedEvent.Where(e => e._joinedReviewEvent != null).Select(r => r._joinedReviewEvent).ToList();
+                                eventVm.AverageRating = reviews.Count <= 0 ? 0 : reviews.Sum(r => r.Rate) / reviews.Count;
                                 return eventVm;
                             })
                             .DistinctBy(e => e.Id)
@@ -384,13 +380,24 @@ namespace EventHubSolution.BackendServer.Controllers
                 eventVms = eventVms.Where(e => filter.rates.Where(r => (r - 0.5) < e.AverageRating && e.AverageRating <= (r + 0.5)).Any()).ToList();
             }
 
-            eventVms = eventVms.Where(e => !e.IsPrivate).ToList();
+            switch (filter.eventPrivacy)
+            {
+                case EventPrivacy.PUBLIC:
+                    eventVms = eventVms.Where(e => !e.IsPrivate).ToList();
+                    break;
+                case EventPrivacy.PRIVATE:
+                    eventVms = eventVms.Where(e => e.IsPrivate).ToList();
+                    break;
+            }
 
             var metadata = new EventMetadata(
                 eventVms.Count(),
                 filter.page,
                 filter.size,
-                filter.takeAll);
+                filter.takeAll,
+                eventVms.Count(e => !e.IsPrivate),
+                eventVms.Count(e => e.IsPrivate)
+            );
 
             if (filter.takeAll == false)
             {
@@ -423,7 +430,8 @@ namespace EventHubSolution.BackendServer.Controllers
                     return NotFound(new ApiNotFoundResponse($"Event with id {id} is not existed."));
                 var fileStorages = await _fileService.GetListFileStoragesAsync();
 
-                var averageRating = _db.Reviews.Sum(r => r.Rate) / _db.Reviews.Count(r => r.EventId == eventData.Id);
+                var reviews = await _db.Reviews.Where(r => r.EventId == eventData.Id).ToListAsync();
+                var averageRating = reviews.Count <= 0 ? 0 : reviews.Sum(r => r.Rate) / reviews.Count;
 
                 eventDataVm = new EventDetailVm()
                 {

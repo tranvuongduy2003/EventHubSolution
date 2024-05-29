@@ -168,7 +168,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 await _signInManager.SignOutAsync();
             }
 
-            var redirectUrl = $"https://eventhubsolutionbackendserverplan.azurewebsites.net/api/auth/external-auth-callback?returnUrl=${returnUrl}";
+            var redirectUrl = $"https://eventhubsolutionbackendserverplan.azurewebsites.net/api/auth/external-auth-callback?returnUrl={returnUrl}";
             var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
             properties.AllowRefresh = true;
             return Challenge(properties, provider);

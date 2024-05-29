@@ -118,14 +118,32 @@ namespace EventHubSolution.BackendServer.Controllers
             else
             {
                 var users = _userManager.Users.ToList();
-
+                var roles = (from _role in _db.Roles
+                             join _userRole in _db.UserRoles
+                             on _role.Id equals _userRole.RoleId
+                             select new
+                             {
+                                 UserId = _userRole.UserId,
+                                 RoleId = _userRole.RoleId,
+                                 Role = _role,
+                             })
+                             .GroupBy(_joinedRole => _joinedRole.UserId)
+                             .Select(_groupedRole => new
+                             {
+                                 UserId = _groupedRole.Key,
+                                 Roles = _groupedRole.Select(r => r.Role.Name),
+                             });
                 var fileStorages = await _fileService.GetListFileStoragesAsync();
 
                 userVms = (from u in users
                            join f in fileStorages
-                               on u.AvatarId equals f.Id
-                               into UsersWithAvatar
+                           on u.AvatarId equals f.Id
+                           into UsersWithAvatar
                            from uwa in UsersWithAvatar.DefaultIfEmpty()
+                           join _role in roles
+                           on u.Id equals _role.UserId
+                           into joinedUserRoles
+                           from _joinedUserRole in joinedUserRoles.DefaultIfEmpty()
                            select new UserVm
                            {
                                Id = u.Id,
@@ -141,10 +159,12 @@ namespace EventHubSolution.BackendServer.Controllers
                                NumberOfFolloweds = u.NumberOfFolloweds,
                                NumberOfFollowers = u.NumberOfFollowers,
                                Status = u.Status,
+                               Roles = _joinedUserRole?.Roles.ToList(),
                                Avatar = uwa?.FilePath,
                                CreatedAt = u.CreatedAt,
                                UpdatedAt = u.UpdatedAt
-                           }).ToList();
+                           })
+                           .ToList();
             }
 
             if (!filter.search.IsNullOrEmpty())
@@ -214,7 +234,7 @@ namespace EventHubSolution.BackendServer.Controllers
                     NumberOfFolloweds = user.NumberOfFolloweds,
                     NumberOfFollowers = user.NumberOfFollowers,
                     Status = user.Status,
-                    Avatar = avatar.FilePath,
+                    Avatar = avatar?.FilePath ?? "",
                     Roles = roles.ToList(),
                     CreatedAt = user.CreatedAt,
                     UpdatedAt = user.UpdatedAt
@@ -282,7 +302,7 @@ namespace EventHubSolution.BackendServer.Controllers
                 _cacheService.SetData<UserVm>($"{CacheKey.USER}{userVm.Id}", userVm, expiryTime);
                 _cacheService.RemoveData(CacheKey.USERS);
 
-                return Ok(userVm);
+                return Ok(new ApiOkResponse(userVm));
             }
 
             return BadRequest(new ApiBadRequestResponse(result));
@@ -639,12 +659,8 @@ namespace EventHubSolution.BackendServer.Controllers
                             .Select(groupedEvent =>
                             {
                                 var eventVm = groupedEvent.Key;
-                                eventVm.AverageRating =
-                                    groupedEvent
-                                        .Where(e => e._joinedReviewEvent != null)
-                                        .Sum(e => e._joinedReviewEvent.Rate) /
-                                    groupedEvent
-                                        .Count(e => e._joinedReviewEvent != null);
+                                var reviews = groupedEvent.Where(e => e._joinedReviewEvent != null).Select(r => r._joinedReviewEvent).ToList();
+                                eventVm.AverageRating = reviews.Count <= 0 ? 0 : reviews.Sum(r => r.Rate) / reviews.Count;
                                 return eventVm;
                             })
                             .DistinctBy(e => e.Id)
@@ -872,12 +888,8 @@ namespace EventHubSolution.BackendServer.Controllers
                             .Select(groupedEvent =>
                             {
                                 var eventVm = groupedEvent.Key;
-                                eventVm.AverageRating =
-                                    groupedEvent
-                                        .Where(e => e._joinedReviewEvent != null)
-                                        .Sum(e => e._joinedReviewEvent.Rate) /
-                                    groupedEvent
-                                        .Count(e => e._joinedReviewEvent != null);
+                                var reviews = groupedEvent.Where(e => e._joinedReviewEvent != null).Select(r => r._joinedReviewEvent).ToList();
+                                eventVm.AverageRating = reviews.Count <= 0 ? 0 : reviews.Sum(r => r.Rate) / reviews.Count;
                                 return eventVm;
                             })
                             .DistinctBy(e => e.Id)
@@ -1105,12 +1117,8 @@ namespace EventHubSolution.BackendServer.Controllers
                             .Select(groupedEvent =>
                             {
                                 var eventVm = groupedEvent.Key;
-                                eventVm.AverageRating =
-                                    groupedEvent
-                                        .Where(e => e._joinedReviewEvent != null)
-                                        .Sum(e => e._joinedReviewEvent.Rate) /
-                                    groupedEvent
-                                        .Count(e => e._joinedReviewEvent != null);
+                                var reviews = groupedEvent.Where(e => e._joinedReviewEvent != null).Select(r => r._joinedReviewEvent).ToList();
+                                eventVm.AverageRating = reviews.Count <= 0 ? 0 : reviews.Sum(r => r.Rate) / reviews.Count;
                                 return eventVm;
                             })
                             .DistinctBy(e => e.Id)
@@ -1206,6 +1214,17 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetConversationsByUserId(string userId, [FromQuery] PaginationFilter filter)
         {
             var fileStorages = await _fileService.GetListFileStoragesAsync();
+            var users = from userEntity in _userManager.Users.ToList()
+                        join file in fileStorages
+                        on userEntity.AvatarId equals file.Id
+                        into joinedUsers
+                        from joinedUser in joinedUsers.DefaultIfEmpty()
+                        select new
+                        {
+                            Id = userEntity.Id,
+                            Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
+                            FullName = userEntity.FullName
+                        };
             var conversationVms = (from conversation in _db.Conversations.ToList()
                                    join eventItem in (from eventEntity in _db.Events.Where(e => e.IsTrash == false).ToList()
                                                       join file in fileStorages
@@ -1219,18 +1238,10 @@ namespace EventHubSolution.BackendServer.Controllers
                                                           Name = eventEntity.Name
                                                       })
                                    on conversation.EventId equals eventItem.Id
-                                   join userItem in (from userEntity in _userManager.Users.ToList()
-                                                     join file in fileStorages
-                                                     on userEntity.AvatarId equals file.Id
-                                                     into joinedUsers
-                                                     from joinedUser in joinedUsers.DefaultIfEmpty()
-                                                     select new
-                                                     {
-                                                         Id = userEntity.Id,
-                                                         Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
-                                                         FullName = userEntity.FullName
-                                                     })
+                                   join userItem in users
                                    on conversation.UserId equals userItem.Id
+                                   join host in users
+                                   on conversation.HostId equals host.Id
                                    join message in _db.Messages.ToList()
                                    on conversation.LastMessageId equals message.Id
                                    into joinedMessageConversations
@@ -1246,6 +1257,11 @@ namespace EventHubSolution.BackendServer.Controllers
                                            CoverImage = eventItem.CoverImage
                                        },
                                        HostId = conversation.HostId,
+                                       Host = new ConversationUserVm
+                                       {
+                                           Avatar = host.Avatar,
+                                           FullName = host.FullName
+                                       },
                                        UserId = conversation.UserId,
                                        User = new ConversationUserVm
                                        {
@@ -1299,6 +1315,17 @@ namespace EventHubSolution.BackendServer.Controllers
         {
 
             var fileStorages = await _fileService.GetListFileStoragesAsync();
+            var users = from userEntity in _userManager.Users.ToList()
+                        join file in fileStorages
+                        on userEntity.AvatarId equals file.Id
+                        into joinedUsers
+                        from joinedUser in joinedUsers.DefaultIfEmpty()
+                        select new
+                        {
+                            Id = userEntity.Id,
+                            Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
+                            FullName = userEntity.FullName
+                        };
             var conversationVms = (from conversation in _db.Conversations.ToList()
                                    join eventItem in (from eventEntity in _db.Events.Where(e => e.IsTrash == false).ToList()
                                                       join file in fileStorages
@@ -1312,18 +1339,10 @@ namespace EventHubSolution.BackendServer.Controllers
                                                           Name = eventEntity.Name
                                                       })
                                    on conversation.EventId equals eventItem.Id
-                                   join userItem in (from userEntity in _userManager.Users.ToList()
-                                                     join file in fileStorages
-                                                     on userEntity.AvatarId equals file.Id
-                                                     into joinedUsers
-                                                     from joinedUser in joinedUsers.DefaultIfEmpty()
-                                                     select new
-                                                     {
-                                                         Id = userEntity.Id,
-                                                         Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
-                                                         FullName = userEntity.FullName
-                                                     })
+                                   join userItem in users
                                    on conversation.UserId equals userItem.Id
+                                   join host in users
+                                   on conversation.HostId equals host.Id
                                    join message in _db.Messages.ToList()
                                    on conversation.LastMessageId equals message.Id
                                    into joinedMessageConversations
@@ -1339,6 +1358,11 @@ namespace EventHubSolution.BackendServer.Controllers
                                            CoverImage = eventItem.CoverImage
                                        },
                                        HostId = conversation.HostId,
+                                       Host = new ConversationUserVm
+                                       {
+                                           Avatar = host.Avatar,
+                                           FullName = host.FullName
+                                       },
                                        UserId = conversation.UserId,
                                        User = new ConversationUserVm
                                        {

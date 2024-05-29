@@ -32,6 +32,17 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetConversations([FromQuery] PaginationFilter filter)
         {
             var fileStorages = await _fileStorage.GetListFileStoragesAsync();
+            var users = from userEntity in _userManager.Users.ToList()
+                        join file in fileStorages
+                        on userEntity.AvatarId equals file.Id
+                        into joinedUsers
+                        from joinedUser in joinedUsers.DefaultIfEmpty()
+                        select new
+                        {
+                            Id = userEntity.Id,
+                            Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
+                            FullName = userEntity.FullName
+                        };
             var conversationVms = (from conversation in _db.Conversations.ToList()
                                    join eventItem in (from eventEntity in _db.Events.Where(e => e.IsTrash == false).ToList()
                                                       join file in fileStorages
@@ -45,18 +56,10 @@ namespace EventHubSolution.BackendServer.Controllers
                                                           Name = eventEntity.Name
                                                       })
                                    on conversation.EventId equals eventItem.Id
-                                   join userItem in (from userEntity in _userManager.Users.ToList()
-                                                     join file in fileStorages
-                                                     on userEntity.AvatarId equals file.Id
-                                                     into joinedUsers
-                                                     from joinedUser in joinedUsers.DefaultIfEmpty()
-                                                     select new
-                                                     {
-                                                         Id = userEntity.Id,
-                                                         Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
-                                                         FullName = userEntity.FullName
-                                                     })
+                                   join userItem in users
                                    on conversation.UserId equals userItem.Id
+                                   join host in users
+                                   on conversation.HostId equals host.Id
                                    join message in _db.Messages.ToList()
                                    on conversation.LastMessageId equals message.Id
                                    into joinedMessageConversations
@@ -71,6 +74,11 @@ namespace EventHubSolution.BackendServer.Controllers
                                            CoverImage = eventItem.CoverImage
                                        },
                                        HostId = conversation.HostId,
+                                       Host = new ConversationUserVm
+                                       {
+                                           Avatar = host.Avatar,
+                                           FullName = host.FullName
+                                       },
                                        UserId = conversation.UserId,
                                        User = new ConversationUserVm
                                        {

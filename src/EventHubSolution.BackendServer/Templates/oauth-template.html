@@ -9,15 +9,13 @@
   <body>
     <form
       method="POST"
-      action="https://localhost:8080/api/auth/external-login?provider=Google&returnUrl=http://localhost:5173"
+      action="https://eventhubsolutionbackendserverplan.azurewebsites.net/api/auth/external-login?provider=Google&returnUrl=http://127.0.0.1:5500/oauth-template.html"
     >
       <button
         type="submit"
         name="provider"
         value="Google"
-        title="{`Login"
-        using
-        Google`}
+        title="Login using Google"
       >
         Google
       </button>
@@ -25,15 +23,13 @@
 
     <form
       method="POST"
-      action="https://localhost:8080/api/auth/external-login?provider=Facebook&returnUrl=http://localhost:5173"
+      action="https://eventhubsolutionbackendserverplan.azurewebsites.net/api/auth/external-login?provider=Facebook&returnUrl=http://127.0.0.1:5500/oauth-template.html"
     >
       <button
         type="submit"
         name="provider"
         value="Facebook"
-        title="{`Login"
-        using
-        Facebook`}
+        title="Login using Facebook"
       >
         Facebook
       </button>

@@ -10,6 +10,8 @@
 
         public string HostId { get; set; }
 
+        public ConversationUserVm Host { get; set; }
+
         public string UserId { get; set; }
 
         public ConversationUserVm User { get; set; }

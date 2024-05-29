@@ -275,8 +275,81 @@ namespace EventHubSolution.BackendServer.Controllers
         [ClaimRequirement(FunctionCode.CONTENT_PAYMENT, CommandCode.VIEW)]
         public async Task<IActionResult> GetPayments([FromQuery] PaymentPaginationFilter filter)
         {
-            var payments = _db.Payments.ToList();
+            var fileStorages = await _fileService.GetListFileStoragesAsync();
 
+            var paymentMethods = (from _paymentMethod in _db.PaymentMethods.ToList()
+                                  join _file in fileStorages
+                                  on _paymentMethod.MethodLogoId equals _file.Id
+                                  into joinedPaymentMethods
+                                  from _joinedPaymentMethod in joinedPaymentMethods
+                                  select new PaymentMethodVm
+                                  {
+                                      Id = _paymentMethod.Id,
+                                      MethodLogo = _joinedPaymentMethod?.FilePath ?? "",
+                                      MethodName = _paymentMethod.MethodName
+                                  }).ToList();
+
+            var methods = (from _userPaymentMethod in _db.UserPaymentMethods.ToList()
+                           join _paymentMethod in paymentMethods
+                           on _userPaymentMethod.MethodId equals _paymentMethod.Id
+                           select new UserPaymentMethodVm
+                           {
+                               Id = _userPaymentMethod.Id,
+                               PaymentAccountNumber = _userPaymentMethod.PaymentAccountNumber,
+                               UserId = _userPaymentMethod.UserId,
+                               MethodId = _paymentMethod.Id,
+                               CheckoutContent = _userPaymentMethod.CheckoutContent,
+                               Method = new PaymentMethodVm
+                               {
+                                   Id = _paymentMethod.Id,
+                                   MethodName = _paymentMethod.MethodName,
+                                   MethodLogo = _paymentMethod.MethodLogo
+                               }
+                           }).ToList();
+
+            var events = (from _event in _db.Events.ToList()
+                          join _file in fileStorages
+                          on _event.CoverImageId equals _file.Id
+                          into joinedEvents
+                          from _joinedEvent in joinedEvents
+                          select new
+                          {
+                              Id = _event.Id,
+                              CoverImage = _joinedEvent?.FilePath ?? "",
+                              Name = _event.Name,
+                              CreatorId = _event.CreatorId,
+                          }).ToList();
+
+            var payments = (from _payment in _db.Payments.ToList()
+                            join _event in events
+                            on _payment.EventId equals _event.Id
+                            join _method in methods
+                            on _payment.UserPaymentMethodId equals _method.Id
+                            select new PaymentVm
+                            {
+                                Id = _payment.Id,
+                                EventId = _event.Id,
+                                Event = new PaymentEventVm
+                                {
+                                    Id = _event.Id,
+                                    CoverImage = _event.CoverImage,
+                                    Name = _event.Name,
+                                    CreatorId = _event.CreatorId
+                                },
+                                CustomerEmail = _payment.CustomerEmail,
+                                CustomerPhone = _payment.CustomerPhone,
+                                CustomerName = _payment.CustomerName,
+                                Discount = _payment.Discount,
+                                Status = _payment.Status,
+                                TicketQuantity = _payment.TicketQuantity,
+                                TotalPrice = _payment.TotalPrice,
+                                UserId = _payment.UserId,
+                                UserPaymentMethodId = _payment.UserPaymentMethodId,
+                                PaymentMethod = _method,
+                                CreatedAt = _payment.CreatedAt,
+                                UpdatedAt = _payment.UpdatedAt,
+                            })
+                            .ToList();
 
             if (filter.search != null)
             {
@@ -292,7 +365,10 @@ namespace EventHubSolution.BackendServer.Controllers
                 _ => payments
             };
 
-            payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
+            if (filter.status != PaymentStatus.ALL)
+            {
+                payments = payments.Where(p => p.Status.Equals(filter.status)).ToList();
+            }
 
             var metadata = new Metadata(payments.Count(), filter.page, filter.size, filter.takeAll);
 
@@ -302,26 +378,9 @@ namespace EventHubSolution.BackendServer.Controllers
                     .Take(filter.size).ToList();
             }
 
-            var paymentVms = payments.Select(p => new PaymentVm()
-            {
-                Id = p.Id,
-                CustomerName = p.CustomerName,
-                CustomerEmail = p.CustomerEmail,
-                CustomerPhone = p.CustomerPhone,
-                Discount = p.Discount,
-                Status = p.Status,
-                EventId = p.EventId,
-                UserPaymentMethodId = p.UserPaymentMethodId,
-                TicketQuantity = p.TicketQuantity,
-                TotalPrice = p.TotalPrice,
-                UserId = p.UserId,
-                CreatedAt = p.CreatedAt,
-                UpdatedAt = p.UpdatedAt
-            }).ToList();
-
             var pagination = new Pagination<PaymentVm>
             {
-                Items = paymentVms,
+                Items = payments,
                 Metadata = metadata,
             };
 

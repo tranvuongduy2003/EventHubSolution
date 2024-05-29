@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using SignalRSwaggerGen.Attributes;
+using ILogger = Serilog.ILogger;
 
 namespace EventHubSolution.BackendServer.Hubs
 {
@@ -16,16 +17,19 @@ namespace EventHubSolution.BackendServer.Hubs
         private readonly ApplicationDbContext _db;
         private readonly UserManager<User> _userManager;
         private readonly IFileStorageService _fileStorage;
+        private readonly ILogger _logger;
 
-        public ChatHub(ApplicationDbContext db, UserManager<User> userManager, IFileStorageService fileStorage)
+        public ChatHub(ILogger logger, ApplicationDbContext db, UserManager<User> userManager, IFileStorageService fileStorage)
         {
             _db = db;
             _userManager = userManager;
             _fileStorage = fileStorage;
+            _logger = logger;
         }
 
         public async Task TestConnection()
         {
+            _logger.Information("Invoke Test Connection");
             await Clients.All.SendAsync("TestConnection", "Connect successfully!");
         }
 
@@ -42,6 +46,10 @@ namespace EventHubSolution.BackendServer.Hubs
             var user = await _userManager.FindByIdAsync(request.UserId);
             if (user == null)
                 throw new Exception($"User with id {request.UserId} does not exist");
+
+            var host = await _userManager.FindByIdAsync(request.HostId);
+            if (host == null)
+                throw new Exception($"Host with id {request.HostId} does not exist");
 
             var conversation = await _db.Conversations.FirstOrDefaultAsync(c => c.HostId == request.HostId && c.EventId == request.EventId && c.UserId == request.UserId);
 
@@ -64,6 +72,7 @@ namespace EventHubSolution.BackendServer.Hubs
 
                     var eventCoverImage = await _fileStorage.GetFileByFileIdAsync(eventData.CoverImageId);
                     var userAvatarImage = await _fileStorage.GetFileByFileIdAsync(user.AvatarId);
+                    var hostAvatarImage = await _fileStorage.GetFileByFileIdAsync(host.AvatarId);
 
                     var conversationVm = new ConversationVm
                     {
@@ -75,6 +84,11 @@ namespace EventHubSolution.BackendServer.Hubs
                             Name = eventData.Name
                         },
                         HostId = newConversation.HostId,
+                        Host = new ConversationUserVm
+                        {
+                            Avatar = hostAvatarImage?.FilePath ?? "",
+                            FullName = host.FullName
+                        },
                         UserId = newConversation.UserId,
                         User = new ConversationUserVm
                         {
@@ -94,6 +108,7 @@ namespace EventHubSolution.BackendServer.Hubs
 
                 var eventCoverImage = await _fileStorage.GetFileByFileIdAsync(eventData.CoverImageId);
                 var userAvatarImage = await _fileStorage.GetFileByFileIdAsync(user.AvatarId);
+                var hostAvatarImage = await _fileStorage.GetFileByFileIdAsync(host.AvatarId);
 
                 var conversationVm = new ConversationVm
                 {
@@ -105,6 +120,11 @@ namespace EventHubSolution.BackendServer.Hubs
                         Name = eventData.Name
                     },
                     HostId = conversation.HostId,
+                    Host = new ConversationUserVm
+                    {
+                        Avatar = hostAvatarImage?.FilePath ?? "",
+                        FullName = host.FullName
+                    },
                     UserId = conversation.UserId,
                     User = new ConversationUserVm
                     {
@@ -138,12 +158,23 @@ namespace EventHubSolution.BackendServer.Hubs
                 Content = request.Content,
             };
 
-            await Clients.Group(request.ConversationId).SendAsync("ReceiveMessage", message);
-
             await _db.Messages.AddAsync(message);
-            conversation.UpdatedAt = DateTime.UtcNow;
-            _db.Conversations.Update(conversation);
+            //conversation.UpdatedAt = DateTime.UtcNow;
+            //_db.Conversations.Update(conversation);
             await _db.SaveChangesAsync();
+
+            var messageVm = new MessageVm
+            {
+                Id = message.Id,
+                UserId = message.UserId,
+                Content = message.Content,
+                ConversationId = message.ConversationId,
+                CreatedAt = message.CreatedAt,
+                UpdatedAt = message.UpdatedAt,
+            };
+
+            await Clients.Group(request.ConversationId).SendAsync("ReceiveMessage", messageVm);
+
         }
     }
 }

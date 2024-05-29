@@ -66,7 +66,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return CreatedAtAction(nameof(PostCategory), categoryVm, request);
+                return Ok(new ApiOkResponse(categoryVm));
             }
             else
             {
@@ -182,10 +182,11 @@ namespace EventHubSolution.BackendServer.Controllers
             if (category == null)
                 return NotFound(new ApiNotFoundResponse(""));
 
-            category.Name = category.Name;
-            category.Color = category.Color;
+            category.Name = request.Name;
+            category.Color = request.Color;
 
             //TODO: Upload file and assign category.ImageColorId to new FileStorage's Id
+            await _fileService.DeleteFileByIdAsync(category.IconImageId);
             FileStorageVm iconFileStorage = await _fileService.SaveFileToFileStorageAsync(request.IconImage, FileContainer.CATEGORIES);
             category.IconImageId = iconFileStorage.Id;
 
@@ -208,7 +209,7 @@ namespace EventHubSolution.BackendServer.Controllers
 
             if (result > 0)
             {
-                return NoContent();
+                return Ok(new ApiOkResponse(categoryVm));
             }
             return BadRequest(new ApiBadRequestResponse(""));
         }
@@ -220,6 +221,11 @@ namespace EventHubSolution.BackendServer.Controllers
             var category = await _db.Categories.FindAsync(id);
             if (category == null)
                 return NotFound(new ApiNotFoundResponse(""));
+
+            var events = await _db.EventCategories.CountAsync(e => e.CategoryId.Equals(category.Id));
+
+            if (events > 0)
+                return BadRequest(new ApiBadRequestResponse($"Existing more than 1 events in category {category.Name}"));
 
             var categoryIconImage = await _fileService.GetFileByFileIdAsync(category.IconImageId);
 
