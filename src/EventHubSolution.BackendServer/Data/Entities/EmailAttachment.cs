@@ -18,11 +18,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "varchar(50)")]
         public string AttachmentId { get; set; }
 
-        [NotMapped]
         [ForeignKey("EmailContentId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual EmailContent EmailContent { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("AttachmentId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual FileStorage Attachment { get; set; } = null!;

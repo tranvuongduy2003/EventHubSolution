@@ -52,4 +52,8 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\EventHubSolution.ViewModels\EventHubSolution.ViewModels.csproj" OutputItemType="Library" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Data\Migrations\" />
+	</ItemGroup>
 </Project>

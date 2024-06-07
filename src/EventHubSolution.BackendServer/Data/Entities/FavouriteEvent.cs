@@ -18,11 +18,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Required]
         public string EventId { get; set; }
 
-        [NotMapped]
         [ForeignKey("UserId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User User { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("EventId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;

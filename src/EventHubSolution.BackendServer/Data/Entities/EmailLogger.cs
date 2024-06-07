@@ -1,4 +1,5 @@
 ﻿using EventHubSolution.BackendServer.Data.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -32,8 +33,8 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
-        [NotMapped]
         [ForeignKey("EmailContentId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual EmailContent EmailContent { get; set; } = null!;
     }
 }

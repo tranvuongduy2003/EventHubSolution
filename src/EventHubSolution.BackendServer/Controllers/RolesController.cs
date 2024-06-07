@@ -14,10 +14,10 @@ namespace EventHubSolution.BackendServer.Controllers
     [ApiController]
     public class RolesController : ControllerBase
     {
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<Role> _roleManager;
         private readonly ApplicationDbContext _db;
 
-        public RolesController(RoleManager<IdentityRole> roleManager, ApplicationDbContext db)
+        public RolesController(RoleManager<Role> roleManager, ApplicationDbContext db)
         {
             _roleManager = roleManager;
             _db = db;
@@ -29,7 +29,7 @@ namespace EventHubSolution.BackendServer.Controllers
         [ApiValidationFilter]
         public async Task<IActionResult> PostRole(RoleCreateRequest request)
         {
-            var role = new IdentityRole()
+            var role = new Role()
             {
                 Id = request.Id,
                 Name = request.Name,

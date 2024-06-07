@@ -50,21 +50,20 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Range(0.00, 1.00)]
         public double Discount { get; set; } = 0;
 
-        [NotMapped]
         [ForeignKey("EventId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("UserId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User User { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("PaymentId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Payment Payment { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("TicketTypeId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual TicketType TicketType { get; set; } = null!;
     }
 }

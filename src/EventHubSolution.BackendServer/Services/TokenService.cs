@@ -18,9 +18,9 @@ namespace EventHubSolution.BackendServer.Services
         private readonly JwtOptions _jwtOptions;
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<Role> _roleManager;
 
-        public TokenService(IOptions<JwtOptions> jwtOptions, ApplicationDbContext context, UserManager<User> userManager, RoleManager<IdentityRole> roleManager)
+        public TokenService(IOptions<JwtOptions> jwtOptions, ApplicationDbContext context, UserManager<User> userManager, RoleManager<Role> roleManager)
         {
             _jwtOptions = jwtOptions.Value;
             _context = context;

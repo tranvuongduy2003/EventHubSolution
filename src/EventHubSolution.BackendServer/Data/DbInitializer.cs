@@ -19,11 +19,11 @@ namespace EventHubSolution.BackendServer.Data
 
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<Role> _roleManager;
 
         public DbInitializer(ApplicationDbContext context,
           UserManager<User> userManager,
-          RoleManager<IdentityRole> roleManager)
+          RoleManager<Role> roleManager)
         {
             _context = context;
             _userManager = userManager;
@@ -47,21 +47,21 @@ namespace EventHubSolution.BackendServer.Data
         {
             if (!_roleManager.Roles.Any())
             {
-                await _roleManager.CreateAsync(new IdentityRole()
+                await _roleManager.CreateAsync(new Role()
                 {
                     Id = Guid.NewGuid().ToString(),
                     Name = UserRole.ADMIN.GetDisplayName(),
                     ConcurrencyStamp = "1",
                     NormalizedName = UserRole.ADMIN.GetDisplayName().Normalize()
                 });
-                await _roleManager.CreateAsync(new IdentityRole()
+                await _roleManager.CreateAsync(new Role()
                 {
                     Id = Guid.NewGuid().ToString(),
                     Name = UserRole.CUSTOMER.GetDisplayName(),
                     ConcurrencyStamp = "2",
                     NormalizedName = UserRole.CUSTOMER.GetDisplayName().Normalize()
                 });
-                await _roleManager.CreateAsync(new IdentityRole()
+                await _roleManager.CreateAsync(new Role()
                 {
                     Id = Guid.NewGuid().ToString(),
                     Name = UserRole.ORGANIZER.GetDisplayName(),

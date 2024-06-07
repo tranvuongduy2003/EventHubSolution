@@ -37,7 +37,7 @@ namespace EventHubSolution.BackendServer.Extentions
                 p.AddPolicy(appCors, build => { build.WithOrigins("*").AllowAnyMethod().AllowAnyHeader(); }));
 
             // 2.Setup identity
-            services.AddIdentity<User, IdentityRole>()
+            services.AddIdentity<User, Role>()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddTokenProvider<DataProtectorTokenProvider<User>>(TokenProviders.GOOGLE)
                 .AddTokenProvider<DataProtectorTokenProvider<User>>(TokenProviders.FACEBOOK)

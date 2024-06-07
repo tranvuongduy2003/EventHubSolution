@@ -42,10 +42,10 @@ namespace EventHubSolution.BackendServer.Extentions
 
                 try
                 {
-                    logger.LogInformation("Migrating mysql database.");
+                    logger.LogInformation("Migrating database.");
                     if (context.Database.GetPendingMigrations().Count() > 0)
                         context.Database.Migrate();
-                    logger.LogInformation("Migrated mysql database.");
+                    logger.LogInformation("Migrated database.");
                     Log.Information("Seeding data...");
                     var dbInitializer = services.GetService<DbInitializer>();
                     dbInitializer?.Seed().Wait();

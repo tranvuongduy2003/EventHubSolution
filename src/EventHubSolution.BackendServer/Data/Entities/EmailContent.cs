@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
@@ -21,14 +22,12 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "varchar(50)")]
         public string EventId { get; set; }
 
-        [NotMapped]
         [ForeignKey("EventId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;
 
-        [NotMapped]
         public virtual ICollection<EmailAttachment> EmailAttachments { get; set; } = new List<EmailAttachment>();
 
-        [NotMapped]
         public virtual ICollection<EmailLogger> EmailLoggers { get; set; } = new List<EmailLogger>();
     }
 }

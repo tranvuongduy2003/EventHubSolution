@@ -18,12 +18,12 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Required]
         public string FunctionId { get; set; }
 
-        [NotMapped]
         [ForeignKey("CommandId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Command Command { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("FunctionId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Function Function { get; set; } = null!;
     }
 }

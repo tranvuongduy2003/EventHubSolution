@@ -18,12 +18,12 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Required]
         public string EventId { get; set; }
 
-        [NotMapped]
         [ForeignKey("LabelId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Label Label { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("EventId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;
     }
 }

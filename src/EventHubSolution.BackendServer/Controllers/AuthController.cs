@@ -24,14 +24,14 @@ namespace EventHubSolution.BackendServer.Controllers
     public class AuthController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<Role> _roleManager;
         private readonly SignInManager<User> _signInManager;
         private readonly ITokenService _tokenService;
         private readonly ApplicationDbContext _db;
         private readonly IEmailService _emailService;
         private readonly IFileStorageService _fileStorage;
 
-        public AuthController(UserManager<User> userManager, RoleManager<IdentityRole> roleManager, SignInManager<User> signInManager, ITokenService tokenService, ApplicationDbContext db, IEmailService emailService, IFileStorageService fileStorage)
+        public AuthController(UserManager<User> userManager, RoleManager<Role> roleManager, SignInManager<User> signInManager, ITokenService tokenService, ApplicationDbContext db, IEmailService emailService, IFileStorageService fileStorage)
         {
             _userManager = userManager;
             _roleManager = roleManager;

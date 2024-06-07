@@ -28,16 +28,16 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
-        [NotMapped]
         [ForeignKey("InviterId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Inviter { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("InvitedId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Invited { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("EventId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;
     }
 }
