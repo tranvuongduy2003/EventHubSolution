@@ -1,4 +1,5 @@
 ﻿using EventHubSolution.BackendServer.Data.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -34,19 +35,18 @@ namespace EventHubSolution.BackendServer.Data.Entities
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
-        [NotMapped]
         [ForeignKey("EventId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("HostId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Host { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("UserId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User User { get; set; } = null!;
 
-        [NotMapped]
         public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
     }
 }

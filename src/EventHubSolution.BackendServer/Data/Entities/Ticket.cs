@@ -63,20 +63,18 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
-        [NotMapped]
         [ForeignKey("TicketTypeId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual TicketType TicketType { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("EventId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("UserId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User User { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("PaymentId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Payment Payment { get; set; } = null!;

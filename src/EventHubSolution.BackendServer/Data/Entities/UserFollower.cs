@@ -18,12 +18,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Required]
         public string FollowedId { get; set; }
 
-        [NotMapped]
         [ForeignKey("FollowerId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Follower { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("FollowedId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User Followed { get; set; } = null!;

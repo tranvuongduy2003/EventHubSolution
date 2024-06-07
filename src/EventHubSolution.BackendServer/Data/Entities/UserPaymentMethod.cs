@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
@@ -34,16 +35,17 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "nvarchar(200)")]
         public string? CheckoutContent { get; set; } = string.Empty;
 
-        [NotMapped]
         [ForeignKey("UserId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual User User { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("MethodId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual PaymentMethod Method { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("PaymentAccountQRCodeId")]
         public virtual FileStorage? PaymentAccountQRCode { get; set; } = null!;
+
+        public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
     }
 }

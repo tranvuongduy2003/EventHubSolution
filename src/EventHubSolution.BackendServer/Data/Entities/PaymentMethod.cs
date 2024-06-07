@@ -21,9 +21,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "varchar(50)")]
         public string MethodLogoId { get; set; }
 
-        [NotMapped]
         [ForeignKey("MethodLogoId")]
         [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual FileStorage MethodLogo { get; set; } = null!;
+
+        public virtual ICollection<UserPaymentMethod> UserPaymentMethods { get; set; } = new List<UserPaymentMethod>();
     }
 }

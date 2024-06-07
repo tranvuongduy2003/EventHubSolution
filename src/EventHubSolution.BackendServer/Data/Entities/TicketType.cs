@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EventHubSolution.BackendServer.Data.Entities
@@ -33,11 +34,12 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Range(0, Double.PositiveInfinity)]
         public int? NumberOfSoldTickets { get; set; } = 0;
 
-        [NotMapped]
         [ForeignKey("EventId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Event Event { get; set; } = null!;
 
-        [NotMapped]
         public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+
+        public virtual ICollection<PaymentItem> PaymentItems { get; set; } = new List<PaymentItem>();
     }
 }

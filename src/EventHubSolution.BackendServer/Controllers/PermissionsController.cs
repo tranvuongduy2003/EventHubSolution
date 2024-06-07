@@ -19,9 +19,9 @@ namespace EventHubSolution.BackendServer.Controllers
     {
         private readonly ApplicationDbContext _db;
         private readonly IConfiguration _configuration;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<Role> _roleManager;
 
-        public PermissionsController(ApplicationDbContext db, IConfiguration configuration, RoleManager<IdentityRole> roleManager)
+        public PermissionsController(ApplicationDbContext db, IConfiguration configuration, RoleManager<Role> roleManager)
         {
             _db = db;
             _configuration = configuration;

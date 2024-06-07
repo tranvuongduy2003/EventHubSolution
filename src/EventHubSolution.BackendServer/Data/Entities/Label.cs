@@ -16,10 +16,8 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "nvarchar(50)")]
         public string Name { get; set; }
 
-        [NotMapped]
         public virtual ICollection<LabelInEvent> LabelInEvents { get; set; } = new List<LabelInEvent>();
 
-        [NotMapped]
         public virtual ICollection<LabelInUser> LabelInUsers { get; set; } = new List<LabelInUser>();
     }
 }

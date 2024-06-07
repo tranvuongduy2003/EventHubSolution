@@ -22,13 +22,13 @@ namespace EventHubSolution.BackendServer.Controllers
     public class UsersController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<Role> _roleManager;
         private readonly ApplicationDbContext _db;
         private readonly IFileStorageService _fileService;
         private readonly ICacheService _cacheService;
         private readonly StripeService _stripeService;
 
-        public UsersController(UserManager<User> userManager, RoleManager<IdentityRole> roleManager,
+        public UsersController(UserManager<User> userManager, RoleManager<Role> roleManager,
             ApplicationDbContext db, IFileStorageService fileService, ICacheService cacheService, StripeService stripeService)
         {
             _userManager = userManager;

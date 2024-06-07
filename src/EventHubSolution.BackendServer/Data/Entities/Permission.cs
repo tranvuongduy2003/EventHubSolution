@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -28,16 +27,16 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "varchar(50)")]
         public string CommandId { get; set; }
 
-        [NotMapped]
         [ForeignKey("FunctionId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Function Function { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("RoleId")]
-        public virtual IdentityRole Role { get; set; } = null!;
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
+        public virtual Role Role { get; set; } = null!;
 
-        [NotMapped]
         [ForeignKey("CommandId")]
+        [DeleteBehavior(DeleteBehavior.ClientSetNull)]
         public virtual Command Command { get; set; } = null!;
     }
 }

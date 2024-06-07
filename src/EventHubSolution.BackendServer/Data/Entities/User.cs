@@ -61,38 +61,34 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
-        [NotMapped]
         [ForeignKey("AvatarId")]
         public virtual FileStorage Avatar { get; set; } = null!;
 
-        [NotMapped]
         public virtual ICollection<LabelInUser> LabelInUsers { get; set; } = new List<LabelInUser>();
 
-        [NotMapped]
         public virtual ICollection<UserFollower> Followers { get; set; } = new List<UserFollower>();
-
-        [NotMapped]
-        public virtual ICollection<Invitation> Inviters { get; set; } = new List<Invitation>();
-
-        [NotMapped]
-        public virtual ICollection<Invitation> Inviteds { get; set; } = new List<Invitation>();
-
-        [NotMapped]
         public virtual ICollection<UserFollower> Followeds { get; set; } = new List<UserFollower>();
 
-        [NotMapped]
+        public virtual ICollection<Invitation> Inviteds { get; set; } = new List<Invitation>();
+        public virtual ICollection<Invitation> Inviters { get; set; } = new List<Invitation>();
+
         public virtual ICollection<FavouriteEvent> FavouriteEvents { get; set; } = new List<FavouriteEvent>();
 
-        [NotMapped]
-        public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
-
-        [NotMapped]
         public virtual ICollection<Event> Events { get; set; } = new List<Event>();
 
-        [NotMapped]
+        public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
+
+        public virtual ICollection<PaymentItem> PaymentItems { get; set; } = new List<PaymentItem>();
+
         public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
 
-        [NotMapped]
+        public virtual ICollection<Conversation> UserConversations { get; set; } = new List<Conversation>();
+        public virtual ICollection<Conversation> HostConversations { get; set; } = new List<Conversation>();
+
+        public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
+
+        public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+
         public virtual ICollection<UserPaymentMethod> UserPaymentMethods { get; set; } = new List<UserPaymentMethod>();
     }
 }
