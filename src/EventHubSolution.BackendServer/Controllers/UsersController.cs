@@ -26,17 +26,15 @@ namespace EventHubSolution.BackendServer.Controllers
         private readonly ApplicationDbContext _db;
         private readonly IFileStorageService _fileService;
         private readonly ICacheService _cacheService;
-        private readonly StripeService _stripeService;
 
         public UsersController(UserManager<User> userManager, RoleManager<Role> roleManager,
-            ApplicationDbContext db, IFileStorageService fileService, ICacheService cacheService, StripeService stripeService)
+            ApplicationDbContext db, IFileStorageService fileService, ICacheService cacheService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _db = db;
             _fileService = fileService;
             _cacheService = cacheService;
-            _stripeService = stripeService;
         }
 
         #region Users
@@ -1210,7 +1208,7 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet("{userId}/conversations-by-user")]
-        [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
+        //[ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
         public async Task<IActionResult> GetConversationsByUserId(string userId, [FromQuery] PaginationFilter filter)
         {
             var fileStorages = await _fileService.GetListFileStoragesAsync();
@@ -1310,7 +1308,7 @@ namespace EventHubSolution.BackendServer.Controllers
         }
 
         [HttpGet("{hostId}/conversations-by-host")]
-        [ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
+        //[ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.VIEW)]
         public async Task<IActionResult> GetConversationsByHostId(string hostId, [FromQuery] PaginationFilter filter)
         {
 

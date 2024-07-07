@@ -292,6 +292,5 @@ namespace EventHubSolution.BackendServer.Data
         public DbSet<PaymentItem> PaymentItems { get; set; }
         public DbSet<UserPaymentMethod> UserPaymentMethods { get; set; }
         public DbSet<PaymentMethod> PaymentMethods { get; set; }
-
     }
 }

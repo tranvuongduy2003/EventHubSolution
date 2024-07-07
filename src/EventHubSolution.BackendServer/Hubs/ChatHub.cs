@@ -14,6 +14,8 @@ namespace EventHubSolution.BackendServer.Hubs
     [SignalRHub]
     public class ChatHub : Hub
     {
+        private readonly static List<string> _connections = new List<string>();
+
         private readonly ApplicationDbContext _db;
         private readonly UserManager<User> _userManager;
         private readonly IFileStorageService _fileStorage;
@@ -64,48 +66,45 @@ namespace EventHubSolution.BackendServer.Hubs
                 };
 
                 await _db.Conversations.AddAsync(newConversation);
-                var result = await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync();
 
-                if (result > 0)
+
+                var eventCoverImage = await _fileStorage.GetFileByFileIdAsync(eventData.CoverImageId);
+                var userAvatarImage = await _fileStorage.GetFileByFileIdAsync(user.AvatarId);
+                var hostAvatarImage = await _fileStorage.GetFileByFileIdAsync(host.AvatarId);
+
+                var conversationVm = new ConversationVm
                 {
-                    await Groups.AddToGroupAsync(Context.ConnectionId, newConversation.Id);
-
-                    var eventCoverImage = await _fileStorage.GetFileByFileIdAsync(eventData.CoverImageId);
-                    var userAvatarImage = await _fileStorage.GetFileByFileIdAsync(user.AvatarId);
-                    var hostAvatarImage = await _fileStorage.GetFileByFileIdAsync(host.AvatarId);
-
-                    var conversationVm = new ConversationVm
+                    Id = newConversation.Id,
+                    EventId = newConversation.EventId,
+                    Event = new ConversationEventVm
                     {
-                        Id = newConversation.Id,
-                        EventId = newConversation.EventId,
-                        Event = new ConversationEventVm
-                        {
-                            CoverImage = eventCoverImage?.FilePath ?? "",
-                            Name = eventData.Name
-                        },
-                        HostId = newConversation.HostId,
-                        Host = new ConversationUserVm
-                        {
-                            Avatar = hostAvatarImage?.FilePath ?? "",
-                            FullName = host.FullName
-                        },
-                        UserId = newConversation.UserId,
-                        User = new ConversationUserVm
-                        {
-                            Avatar = userAvatarImage?.FilePath ?? "",
-                            FullName = user.FullName
-                        },
-                        CreatedAt = newConversation.CreatedAt,
-                        UpdatedAt = newConversation.UpdatedAt,
-                    };
+                        CoverImage = eventCoverImage?.FilePath ?? "",
+                        Name = eventData.Name
+                    },
+                    HostId = newConversation.HostId,
+                    Host = new ConversationUserVm
+                    {
+                        Avatar = hostAvatarImage?.FilePath ?? "",
+                        FullName = host.FullName
+                    },
+                    UserId = newConversation.UserId,
+                    User = new ConversationUserVm
+                    {
+                        Avatar = userAvatarImage?.FilePath ?? "",
+                        FullName = user.FullName
+                    },
+                    CreatedAt = newConversation.CreatedAt,
+                    UpdatedAt = newConversation.UpdatedAt,
+                };
 
-                    await Clients.Group(newConversation.Id).SendAsync("JoinChatRoom", conversationVm, $"{user.FullName} has created  conversation {newConversation.Id}");
-                }
+                _logger.Information($"JoinChatRoom: Created Context Connection id: {Context.ConnectionId}");
+                await Groups.AddToGroupAsync(Context.ConnectionId, newConversation.Id);
+                _connections.Add(newConversation.Id);
+                await Clients.Group(newConversation.Id).SendAsync("JoinChatRoom", conversationVm, $"{user.FullName} has created  conversation {newConversation.Id}");
             }
             else
             {
-                await Groups.AddToGroupAsync(Context.ConnectionId, conversation.Id);
-
                 var eventCoverImage = await _fileStorage.GetFileByFileIdAsync(eventData.CoverImageId);
                 var userAvatarImage = await _fileStorage.GetFileByFileIdAsync(user.AvatarId);
                 var hostAvatarImage = await _fileStorage.GetFileByFileIdAsync(host.AvatarId);
@@ -135,6 +134,9 @@ namespace EventHubSolution.BackendServer.Hubs
                     UpdatedAt = conversation.UpdatedAt,
                 };
 
+                _logger.Information($"JoinChatRoom: Joined Context Connection id: {Context.ConnectionId}");
+                if (!_connections.Contains(conversation.Id))
+                    await Groups.AddToGroupAsync(Context.ConnectionId, conversation.Id);
                 await Clients.Group(conversation.Id).SendAsync("JoinChatRoom", conversationVm, $"{user.FullName} has joined  conversation {conversation.Id}");
             }
         }
@@ -142,6 +144,7 @@ namespace EventHubSolution.BackendServer.Hubs
         //[ClaimRequirement(FunctionCode.CONTENT_CHAT, CommandCode.CREATE)]
         public async Task SendMessage(SendMessageRequest request)
         {
+            _logger.Information($"BEGIN: SendMessage: ${request}");
             var conversation = await _db.Conversations.FindAsync(request.ConversationId);
             if (conversation == null)
                 throw new Exception($"Conversation with id {request.ConversationId} does not exist");
@@ -156,12 +159,11 @@ namespace EventHubSolution.BackendServer.Hubs
                 UserId = request.UserId,
                 ConversationId = request.ConversationId,
                 Content = request.Content,
+                EventId = conversation.EventId,
+                VideoId = request.VideoId,
+                ImageId = request.ImageId,
+                AudioId = request.AudioId,
             };
-
-            await _db.Messages.AddAsync(message);
-            //conversation.UpdatedAt = DateTime.UtcNow;
-            //_db.Conversations.Update(conversation);
-            await _db.SaveChangesAsync();
 
             var messageVm = new MessageVm
             {
@@ -169,12 +171,20 @@ namespace EventHubSolution.BackendServer.Hubs
                 UserId = message.UserId,
                 Content = message.Content,
                 ConversationId = message.ConversationId,
+                Video = request.VideoUrl,
+                Image = request.ImageUrl,
+                Audio = request.AudioUrl,
                 CreatedAt = message.CreatedAt,
                 UpdatedAt = message.UpdatedAt,
             };
 
-            await Clients.Group(request.ConversationId).SendAsync("ReceiveMessage", messageVm);
+            await _db.Messages.AddAsync(message);
+            await _db.SaveChangesAsync();
 
+            _logger.Information($"SendMessage: Context Connection id: {Context.ConnectionId}");
+            if (!_connections.Contains(conversation.Id))
+                await Groups.AddToGroupAsync(Context.ConnectionId, conversation.Id);
+            await Clients.Group(request.ConversationId).SendAsync("ReceiveMessage", messageVm);
         }
     }
 }

@@ -24,20 +24,16 @@ namespace EventHubSolution.BackendServer.Controllers
     public class AuthController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
-        private readonly RoleManager<Role> _roleManager;
         private readonly SignInManager<User> _signInManager;
         private readonly ITokenService _tokenService;
-        private readonly ApplicationDbContext _db;
         private readonly IEmailService _emailService;
         private readonly IFileStorageService _fileStorage;
 
         public AuthController(UserManager<User> userManager, RoleManager<Role> roleManager, SignInManager<User> signInManager, ITokenService tokenService, ApplicationDbContext db, IEmailService emailService, IFileStorageService fileStorage)
         {
             _userManager = userManager;
-            _roleManager = roleManager;
             _signInManager = signInManager;
             _tokenService = tokenService;
-            _db = db;
             _emailService = emailService;
             _fileStorage = fileStorage;
         }
@@ -178,7 +174,7 @@ namespace EventHubSolution.BackendServer.Controllers
         [Route("external-auth-callback")]
         public async Task<IActionResult> ExternalLoginCallback([FromQuery] string returnUrl)
         {
-            ExternalLoginInfo info = await _signInManager.GetExternalLoginInfoAsync();
+            ExternalLoginInfo? info = await _signInManager.GetExternalLoginInfoAsync();
 
             SignInResponse signInResponse = new();
 
@@ -259,7 +255,7 @@ namespace EventHubSolution.BackendServer.Controllers
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
-            if (request is null || request.RefreshToken is null || request.RefreshToken == "")
+            if (request.RefreshToken.IsNullOrEmpty())
                 return BadRequest("Invalid token");
 
             var accessToken = Request.Headers[HeaderNames.Authorization].ToString().Replace("Bearer ", "");

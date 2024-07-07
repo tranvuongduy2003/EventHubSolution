@@ -1,10 +1,9 @@
 ﻿using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
+using EventHubSolution.ViewModels.Configurations;
 using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.ViewModels.General;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using System.IdentityModel.Tokens.Jwt;
@@ -20,9 +19,9 @@ namespace EventHubSolution.BackendServer.Services
         private readonly UserManager<User> _userManager;
         private readonly RoleManager<Role> _roleManager;
 
-        public TokenService(IOptions<JwtOptions> jwtOptions, ApplicationDbContext context, UserManager<User> userManager, RoleManager<Role> roleManager)
+        public TokenService(ApplicationDbContext context, UserManager<User> userManager, RoleManager<Role> roleManager, JwtOptions jwtOptions)
         {
-            _jwtOptions = jwtOptions.Value;
+            _jwtOptions = jwtOptions;
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;

@@ -2,16 +2,16 @@
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Services;
 using EventHubSolution.BackendServer.Services.Interfaces;
-using EventHubSolution.ViewModels;
+using EventHubSolution.ViewModels.Configurations;
 using EventHubSolution.ViewModels.Constants;
-using EventHubSolution.ViewModels.General;
-using EventHubSolution.ViewModels.Systems;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -21,29 +21,6 @@ namespace EventHubSolution.BackendServer.Extentions
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, string appCors)
         {
-            services.AddControllers();
-
-            services.AddAppConfigures(configuration);
-
-            services.ConfigureSwagger();
-
-            services.ConfigureApplicationDbContext(configuration);
-
-            services
-                .AddSignalR()
-                .AddAzureSignalR(configuration.GetSection("AzureSignalR:ConnectionString").Value);
-
-            services.AddCors(p =>
-                p.AddPolicy(appCors, build => { build.WithOrigins("*").AllowAnyMethod().AllowAnyHeader(); }));
-
-            // 2.Setup identity
-            services.AddIdentity<User, Role>()
-                .AddEntityFrameworkStores<ApplicationDbContext>()
-                .AddTokenProvider<DataProtectorTokenProvider<User>>(TokenProviders.GOOGLE)
-                .AddTokenProvider<DataProtectorTokenProvider<User>>(TokenProviders.FACEBOOK)
-                .AddDefaultTokenProviders();
-
-            services.AddControllers();
             services.AddControllers()
                 .AddJsonOptions(options =>
                 {
@@ -52,12 +29,54 @@ namespace EventHubSolution.BackendServer.Extentions
                     options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
                     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
 
-                })
-                .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<RoleCreateRequestValidator>());
+                });
+            services.AddCors(p =>
+                p.AddPolicy(appCors, build =>
+                {
+                    build
+                    .WithOrigins("*")
+                    .AllowAnyMethod()
+                    .AllowAnyHeader();
+                }));
+            services.AddIdentity<User, Role>()
+                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddTokenProvider<DataProtectorTokenProvider<User>>(TokenProviders.GOOGLE)
+                .AddTokenProvider<DataProtectorTokenProvider<User>>(TokenProviders.FACEBOOK)
+                .AddDefaultTokenProviders();
+            services
+                .AddFluentValidationAutoValidation()
+                .AddFluentValidationClientsideAdapters();
+            services
+                .AddAutoMapper(config => config.AddProfile(new MappingProfile()));
 
-            services.AddInfrastructureServices();
+            services.ConfigureSwagger();
+            services.ConfigureAppSettings(configuration);
+            services.ConfigureApplication();
+            services.ConfigureApplicationDbContext(configuration);
+            services.ConfigureAzureSignalR(configuration);
+            services.ConfigureAuthetication();
+            services.ConfigureInfrastructureServices();
 
-            services.AddAutoMapper(cfg => cfg.AddProfile(new MappingProfile()));
+            return services;
+        }
+
+        public static IServiceCollection ConfigureAppSettings(this IServiceCollection services, IConfiguration configuration)
+        {
+            var jwtOptions = configuration.GetSection(nameof(JwtOptions))
+                .Get<JwtOptions>();
+            services.AddSingleton<JwtOptions>(jwtOptions);
+
+            var azureBlobStorage = configuration.GetSection(nameof(AzureBlobStorage))
+                .Get<AzureBlobStorage>();
+            services.AddSingleton<AzureBlobStorage>(azureBlobStorage);
+
+            var emailSettings = configuration.GetSection(nameof(EmailSettings))
+                .Get<EmailSettings>();
+            services.AddSingleton<EmailSettings>(emailSettings);
+
+            var authentication = configuration.GetSection(nameof(Authentication))
+                .Get<Authentication>();
+            services.AddSingleton<Authentication>(authentication);
 
             return services;
         }
@@ -87,7 +106,7 @@ namespace EventHubSolution.BackendServer.Extentions
                                 Id = JwtBearerDefaults.AuthenticationScheme
                             }
                         },
-                        new string[] { }
+                        Array.Empty<string>()
                     }
                 });
                 option.AddSignalRSwaggerGen();
@@ -96,19 +115,9 @@ namespace EventHubSolution.BackendServer.Extentions
             return services;
         }
 
-        private static IServiceCollection AddAppConfigures(this IServiceCollection services, IConfiguration configuration)
+        private static IServiceCollection ConfigureApplication(this IServiceCollection services)
         {
             services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
-
-            services.Configure<JwtOptions>(configuration.GetSection("ApiSettings:JwtOptions"));
-
-            services.Configure<AzureBlobStorage>(configuration.GetSection("AzureBlobStorage"));
-
-            services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
-
-            Stripe.StripeConfiguration.ApiKey = configuration.GetSection("Stripe:SecretKey").Get<string>();
-
-
             services.Configure<IdentityOptions>(options =>
             {
                 // Default Lockout settings.
@@ -123,18 +132,15 @@ namespace EventHubSolution.BackendServer.Extentions
                 options.Password.RequireUppercase = true;
                 options.User.RequireUniqueEmail = true;
             });
-
             services.Configure<DataProtectionTokenProviderOptions>(options =>
             {
                 options.TokenLifespan = TimeSpan.FromHours(8);
             });
-
             services.Configure<CookiePolicyOptions>(options =>
             {
                 options.CheckConsentNeeded = context => true;
                 options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
             });
-
             services.Configure<ApiBehaviorOptions>(options =>
             {
                 options.SuppressModelStateInvalidFilter = true;
@@ -143,29 +149,88 @@ namespace EventHubSolution.BackendServer.Extentions
             return services;
         }
 
-        private static IServiceCollection ConfigureApplicationDbContext(this IServiceCollection services, IConfiguration configuration)
+        private static IServiceCollection ConfigureAuthetication(this IServiceCollection services)
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var jwtOptions = services.GetOptions<JwtOptions>("JwtOptions");
+            var key = Encoding.ASCII.GetBytes(jwtOptions.Secret);
 
-            services.AddDbContext<ApplicationDbContext>(m => m.UseSqlServer(connectionString));
+            var authentication = services.GetOptions<Authentication>("Authentication");
+            var googleAuthentication = authentication.Google;
+            var facebookAuthentication = authentication.Facebook;
+
+
+            services
+                .AddAuthentication(x =>
+                {
+                    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                    x.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                })
+                .AddCookie()
+                .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, x =>
+                {
+                    x.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(key),
+                        ValidateIssuer = true,
+                        ValidIssuer = jwtOptions.Issuer,
+                        ValidAudience = jwtOptions.Audience,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.Zero
+                    };
+                    x.SaveToken = true;
+                })
+                .AddGoogle(googleOptions =>
+                {
+                    googleOptions.ClientId = googleAuthentication.ClientId;
+                    googleOptions.ClientSecret = googleAuthentication.ClientSecret;
+
+                    googleOptions.AccessDeniedPath = "/AccessDeniedPathInfo";
+                    googleOptions.Scope.Add("profile");
+                    googleOptions.SignInScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ExternalScheme;
+                    googleOptions.SaveTokens = true;
+                })
+                .AddFacebook(facebookOptions =>
+                {
+                    facebookOptions.AppId = facebookAuthentication.ClientId;
+                    facebookOptions.AppSecret = facebookAuthentication.ClientSecret;
+
+                    facebookOptions.AccessDeniedPath = "/AccessDeniedPathInfo";
+                    facebookOptions.SaveTokens = true;
+                });
 
             return services;
         }
 
-        private static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
+        private static IServiceCollection ConfigureApplicationDbContext(this IServiceCollection services, IConfiguration configuration)
         {
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            if (connectionString == null || string.IsNullOrEmpty(connectionString))
+                throw new ArgumentNullException("DefaultConnection is not configured.");
+            services.AddDbContext<ApplicationDbContext>(m => m.UseSqlServer(connectionString));
+            return services;
+        }
+
+        private static IServiceCollection ConfigureAzureSignalR(this IServiceCollection services, IConfiguration configuration)
+        {
+            var azureSignalR = configuration.GetConnectionString("AzureSignalR");
+            if (azureSignalR == null || string.IsNullOrEmpty(azureSignalR))
+                throw new ArgumentNullException("AzureSignalR is not configured.");
+            services
+                .AddSignalR()
+                .AddAzureSignalR(azureSignalR);
+            return services;
+        }
+
+        private static IServiceCollection ConfigureInfrastructureServices(this IServiceCollection services) =>
             services.AddTransient<DbInitializer>()
                 .AddTransient<IEmailService, EmailService>()
                 .AddTransient<ISequenceService, SequenceService>()
                 .AddTransient<IFileStorageService, FileStorageService>()
                 .AddTransient<ITokenService, TokenService>()
-                .AddTransient<ICacheService, CacheService>();
-
-
-            services.AddSingleton<StripeService>();
-            services.AddSingleton<AzureBlobService>();
-
-            return services;
-        }
+                .AddTransient<ICacheService, CacheService>()
+                .AddSingleton<AzureBlobService>();
     }
 }

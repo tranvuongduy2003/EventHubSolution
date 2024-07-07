@@ -112,7 +112,6 @@ namespace EventHubSolution.BackendServer.UnitTest.Controllers
                 {
                     Id = "GetFunctionsPaging_NoFilter_ReturnSuccess4",
                     ParentId = null,
-                    Name = "GetFunctionsPaging_NoFilter_ReturnSuccess4",
                     SortOrder = 4,
                     Url = "/GetFunctionsPaging_NoFilter_ReturnSuccess4",
                 }

@@ -20,19 +20,15 @@ namespace EventHubSolution.BackendServer.Extentions
             //app.UseHttpsRedirection(); //production only
 
             app.UseErrorWrapping();
-
             app.UseAuthentication();
-
             app.UseAuthorization();
-
-            app.MapHub<ChatHub>("/Chat");
-
             app.UseCors(appCors);
-
+            app.MapControllers();
             app.MapGet("/", context => Task.Run(() =>
                 context.Response.Redirect("/swagger/index.html")));
 
-            app.MapControllers();
+            // Hubs
+            app.MapHub<ChatHub>("/Chat");
 
             using (var scope = app.Services.CreateScope())
             {

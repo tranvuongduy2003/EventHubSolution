@@ -1,8 +1,8 @@
 ﻿using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
+using EventHubSolution.ViewModels.Configurations;
 using EventHubSolution.ViewModels.General;
-using Microsoft.Extensions.Options;
 
 namespace EventHubSolution.BackendServer.Services
 {
@@ -11,9 +11,9 @@ namespace EventHubSolution.BackendServer.Services
         private readonly AzureBlobStorage _azureBlobStorage;
         private readonly BlobContainerClient _filesContainer;
 
-        public AzureBlobService(IOptions<AzureBlobStorage> azureBlobStorage)
+        public AzureBlobService(AzureBlobStorage azureBlobStorage)
         {
-            _azureBlobStorage = azureBlobStorage.Value;
+            _azureBlobStorage = azureBlobStorage;
 
             var credential = new StorageSharedKeyCredential(_azureBlobStorage.StorageAccount, _azureBlobStorage.Key);
             var blobUri = $"https://{_azureBlobStorage.StorageAccount}.blob.core.windows.net/{_azureBlobStorage.ContainerName}";

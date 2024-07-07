@@ -1,12 +1,51 @@
 version: '3.8'
 
 services:
-  # redis
-  redis:
-    container_name: redis
+  # redis cache
+  eventhubcache:
+    container_name: eventhubcache
     restart: always
     ports:
-      - "8000:6379"
+      - "6379:6379"
+
+  # mssql
+  eventhubdb:
+    container_name: eventhubdb
+    environment:
+      SA_PASSWORD: "@Tranvuongduy2003"
+      ACCEPT_EULA: "Y"
+    restart: always
+    volumes:
+      - sqlserver_data:/var/lib/sqlserver/data
+    ports:
+      - "1435:1433"
+
+  # infrastructure section
+  elasticsearch:
+    container_name: elasticsearch
+    environment:
+      - xpack.monitoring.enabled=true
+      - xpack.watcher.enabled=false
+      - xpack.security.enabled=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+      # - ELASTIC_USERNAME=elastic #default username
+      - ELASTIC_PASSWORD=admin
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+
+  kibana:
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=admin
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
 
   # api sections
   eventhub.api:
@@ -14,8 +53,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
-      - "ConnectionStrings:DefaultConnection=Server=tcp:eventhubapis.database.windows.net,1433;Initial Catalog=EventHubDatabase;Persist Security Info=False;User ID=EventHubDb;Password=Admin*123;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;Connection Timeout=30;"
-      - "ConnectionStrings:DefaultConnection=redis:6379"
+      - "ConnectionStrings:DefaultConnection=Server=eventhubdb;Database=EventHubDb;User Id=sa;Password=@Tranvuongduy2003;Multipleactiveresultsets=true;TrustServerCertificate=True"
+      - "ConnectionStrings:RedisCache=eventhubcache:6379"
+      - "ElasticConfiguration:Uri=http://elasticsearch:9200"
+    depends_on:
+      - eventhubdb
+      - eventhubcache
+      - elasticsearch
     ports:
       - "8002:80"
     restart: always

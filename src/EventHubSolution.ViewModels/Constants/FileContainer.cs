@@ -7,5 +7,6 @@
         public const string CATEGORIES = "categories";
         public const string BANKS = "banks";
         public const string PAYMENTS = "payments";
+        public const string MESSAGES = "messages";
     }
 }

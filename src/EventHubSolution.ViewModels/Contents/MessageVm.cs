@@ -10,6 +10,8 @@
 
         public string? Video { get; set; }
 
+        public string? Audio { get; set; }
+
         public string UserId { get; set; }
 
         public ConversationUserVm User { get; set; }

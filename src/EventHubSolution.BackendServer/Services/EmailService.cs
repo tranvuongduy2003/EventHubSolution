@@ -1,30 +1,29 @@
-﻿using EventHubSolution.ViewModels;
+﻿using EventHubSolution.ViewModels.Configurations;
 using EventHubSolution.ViewModels.General;
 using MailKit.Net.Smtp;
 using MailKit.Security;
-using Microsoft.Extensions.Options;
 using MimeKit;
 
 namespace EventHubSolution.BackendServer.Services;
 
 public class EmailService : IEmailService
 {
-    private readonly EmailSettings emailSettings;
+    private readonly EmailSettings _emailSettings;
 
-    private readonly ILogger<EmailService> logger;
+    private readonly ILogger<EmailService> _logger;
 
-    public EmailService(IOptions<EmailSettings> _mailSettings, ILogger<EmailService> _logger)
+    public EmailService(EmailSettings emailSettings, ILogger<EmailService> logger)
     {
-        emailSettings = _mailSettings.Value;
-        logger = _logger;
-        logger.LogInformation("Create EmailService");
+        _emailSettings = emailSettings;
+        _logger = logger;
+        _logger.LogInformation("Create EmailService");
     }
 
     public async Task SendMail(MailContent mailContent)
     {
         var email = new MimeMessage();
-        email.Sender = new MailboxAddress(emailSettings.DisplayName, emailSettings.Email);
-        email.From.Add(new MailboxAddress(emailSettings.DisplayName, emailSettings.Email));
+        email.Sender = new MailboxAddress(_emailSettings.DisplayName, _emailSettings.Email);
+        email.From.Add(new MailboxAddress(_emailSettings.DisplayName, _emailSettings.Email));
         email.To.Add(MailboxAddress.Parse(mailContent.To));
         email.Subject = mailContent.Subject;
 
@@ -37,8 +36,8 @@ public class EmailService : IEmailService
 
         try
         {
-            smtp.Connect(emailSettings.Host, emailSettings.Port, SecureSocketOptions.StartTls);
-            smtp.Authenticate(emailSettings.Email, emailSettings.Password);
+            smtp.Connect(_emailSettings.Host, _emailSettings.Port, SecureSocketOptions.StartTls);
+            smtp.Authenticate(_emailSettings.Email, _emailSettings.Password);
             await smtp.SendAsync(email);
         }
         catch (Exception ex)
@@ -47,13 +46,13 @@ public class EmailService : IEmailService
             var emailsavefile = string.Format(@"mailssave/{0}.eml", Guid.NewGuid());
             await email.WriteToAsync(emailsavefile);
 
-            logger.LogInformation("Email sending email, save at - " + emailsavefile);
-            logger.LogError(ex.Message);
+            _logger.LogInformation("Email sending email, save at - " + emailsavefile);
+            _logger.LogError(ex.Message);
         }
 
         smtp.Disconnect(true);
 
-        logger.LogInformation("send mail to " + mailContent.To);
+        _logger.LogInformation("send mail to " + mailContent.To);
 
     }
 

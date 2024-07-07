@@ -17,7 +17,7 @@ namespace EventHubSolution.BackendServer.UnitTest.Controllers
     public class UsersControllerTest
     {
         private readonly Mock<UserManager<User>> _mockUserManager;
-        private readonly Mock<RoleManager<IdentityRole>> _mockRoleManager;
+        private readonly Mock<RoleManager<Role>> _mockRoleManager;
         private ApplicationDbContext _context;
         private Mock<IFileStorageService> _mockFileService;
 
@@ -43,8 +43,8 @@ namespace EventHubSolution.BackendServer.UnitTest.Controllers
             var userStore = new Mock<IUserStore<User>>();
             _mockUserManager = new Mock<UserManager<User>>(userStore.Object, null, null, null, null, null, null, null, null);
 
-            var roleStore = new Mock<IRoleStore<IdentityRole>>();
-            _mockRoleManager = new Mock<RoleManager<IdentityRole>>(roleStore.Object, null, null, null, null);
+            var roleStore = new Mock<IRoleStore<Role>>();
+            _mockRoleManager = new Mock<RoleManager<Role>>(roleStore.Object, null, null, null, null);
 
             _context = new InMemoryDbContextFactory().GetApplicationDbContext();
 

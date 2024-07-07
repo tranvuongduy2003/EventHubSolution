@@ -22,15 +22,13 @@ namespace EventHubSolution.BackendServer.Controllers
     {
         private readonly ApplicationDbContext _db;
         private readonly UserManager<User> _userManager;
-        private readonly StripeService _stripeService;
         private readonly ICacheService _cacheService;
         private readonly IFileStorageService _fileService;
 
-        public PaymentsController(ApplicationDbContext db, UserManager<User> userManager, StripeService stripeService, ICacheService cacheService, IFileStorageService fileService)
+        public PaymentsController(ApplicationDbContext db, UserManager<User> userManager, ICacheService cacheService, IFileStorageService fileService)
         {
             _db = db;
             _userManager = userManager;
-            _stripeService = stripeService;
             _cacheService = cacheService;
             _fileService = fileService;
         }

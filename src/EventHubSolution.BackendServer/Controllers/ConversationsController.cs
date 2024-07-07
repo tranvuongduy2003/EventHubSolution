@@ -131,33 +131,45 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetMessagesByConversation(string conversationId, [FromQuery] PaginationFilter filter)
         {
             var fileStorages = await _fileStorage.GetListFileStoragesAsync();
-            var messageVms = (from message in _db.Messages.ToList()
-                              join userItem in (from userEntity in _userManager.Users.ToList()
-                                                join file in fileStorages
-                                                on userEntity.AvatarId equals file.Id
-                                                into joinedUsers
-                                                from joinedUser in joinedUsers.DefaultIfEmpty()
-                                                select new
-                                                {
-                                                    Id = userEntity.Id,
-                                                    Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
-                                                    FullName = userEntity.FullName
-                                                })
-                              on message.UserId equals userItem.Id
-                              where message.ConversationId == conversationId
+            var messageVms = (from _message in _db.Messages.ToList()
+                              join _userItem in (from userEntity in _userManager.Users.ToList()
+                                                 join file in fileStorages
+                                                 on userEntity.AvatarId equals file.Id
+                                                 into joinedUsers
+                                                 from joinedUser in joinedUsers.DefaultIfEmpty()
+                                                 select new
+                                                 {
+                                                     Id = userEntity.Id,
+                                                     Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
+                                                     FullName = userEntity.FullName
+                                                 })
+                              on _message.UserId equals _userItem.Id
+                              join _video in fileStorages
+                              on _message.VideoId equals _video.Id into joinedVideoMessages
+                              from _joinedVideoMessage in joinedVideoMessages.DefaultIfEmpty()
+                              join _image in fileStorages
+                              on _message.ImageId equals _image.Id into joinedImageMessages
+                              from _joinedImageMessage in joinedImageMessages.DefaultIfEmpty()
+                              join _audio in fileStorages
+                              on _message.AudioId equals _audio.Id into joinedAudioMessages
+                              from _joinedAudioMessage in joinedAudioMessages.DefaultIfEmpty()
+                              where _message.ConversationId == conversationId
                               select new MessageVm
                               {
-                                  Id = message.Id,
-                                  Content = message.Content,
-                                  ConversationId = message.ConversationId,
-                                  UserId = message.Id,
+                                  Id = _message.Id,
+                                  Content = _message.Content,
+                                  ConversationId = _message.ConversationId,
+                                  UserId = _message.Id,
                                   User = new ConversationUserVm
                                   {
-                                      Avatar = userItem.Avatar,
-                                      FullName = userItem.FullName,
+                                      Avatar = _userItem.Avatar,
+                                      FullName = _userItem.FullName,
                                   },
-                                  CreatedAt = message.CreatedAt,
-                                  UpdatedAt = message.UpdatedAt
+                                  Video = _joinedVideoMessage?.FilePath,
+                                  Image = _joinedImageMessage?.FilePath,
+                                  Audio = _joinedAudioMessage?.FilePath,
+                                  CreatedAt = _message.CreatedAt,
+                                  UpdatedAt = _message.UpdatedAt
                               }).ToList();
 
 

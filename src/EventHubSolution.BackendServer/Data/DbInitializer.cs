@@ -39,8 +39,8 @@ namespace EventHubSolution.BackendServer.Data
             SeedPermission().Wait();
             SeedCategories().Wait();
             SeedPaymentMethods().Wait();
-            //SeedEvents().Wait();
-            //SeedReviews().Wait();
+            SeedEvents().Wait();
+            SeedReviews().Wait();
         }
 
         private async Task SeedRoles()

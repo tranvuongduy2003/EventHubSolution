@@ -11,12 +11,9 @@ Log.Information("Starting EvenHub API up");
 try
 {
     builder.Host.UseSerilog(Serilogger.Configure);
-
     builder.Host.AddAppConfigurations();
 
     builder.Services.AddInfrastructure(builder.Configuration, AppCors);
-
-    builder.AddAppAuthetication();
 
     var app = builder.Build();
 

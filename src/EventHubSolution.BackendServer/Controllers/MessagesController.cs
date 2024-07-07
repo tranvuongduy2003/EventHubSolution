@@ -1,6 +1,7 @@
 ﻿using EventHubSolution.BackendServer.Data;
 using EventHubSolution.BackendServer.Data.Entities;
 using EventHubSolution.BackendServer.Helpers;
+using EventHubSolution.BackendServer.Hubs;
 using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
@@ -18,14 +19,15 @@ namespace EventHubSolution.BackendServer.Controllers
     {
         private readonly IFileStorageService _fileStorage;
         private readonly UserManager<User> _userManager;
-        private readonly ApplicationDbContext _db
-            ;
+        private readonly ApplicationDbContext _db;
+        private readonly ChatHub _chatHub;
 
-        public MessagesController(IFileStorageService fileStorage, UserManager<User> userManager, ApplicationDbContext db)
+        public MessagesController(IFileStorageService fileStorage, UserManager<User> userManager, ApplicationDbContext db, ChatHub chatHub)
         {
             _fileStorage = fileStorage;
             _userManager = userManager;
             _db = db;
+            _chatHub = chatHub;
         }
 
         [HttpGet]
@@ -33,32 +35,44 @@ namespace EventHubSolution.BackendServer.Controllers
         public async Task<IActionResult> GetMessages([FromQuery] PaginationFilter filter)
         {
             var fileStorages = await _fileStorage.GetListFileStoragesAsync();
-            var messageVms = (from message in _db.Messages.ToList()
-                              join userItem in (from userEntity in _userManager.Users.ToList()
-                                                join file in fileStorages
-                                                on userEntity.AvatarId equals file.Id
-                                                into joinedUsers
-                                                from joinedUser in joinedUsers.DefaultIfEmpty()
-                                                select new
-                                                {
-                                                    Id = userEntity.Id,
-                                                    Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
-                                                    FullName = userEntity.FullName
-                                                })
-                              on message.UserId equals userItem.Id
+            var messageVms = (from _message in _db.Messages.ToList()
+                              join _userItem in (from userEntity in _userManager.Users.ToList()
+                                                 join file in fileStorages
+                                                 on userEntity.AvatarId equals file.Id
+                                                 into joinedUsers
+                                                 from joinedUser in joinedUsers.DefaultIfEmpty()
+                                                 select new
+                                                 {
+                                                     Id = userEntity.Id,
+                                                     Avatar = joinedUser != null && joinedUser.FilePath != null ? joinedUser.FilePath : "",
+                                                     FullName = userEntity.FullName
+                                                 })
+                              on _message.UserId equals _userItem.Id
+                              join _video in fileStorages
+                              on _message.VideoId equals _video.Id into joinedVideoMessages
+                              from _joinedVideoMessage in joinedVideoMessages.DefaultIfEmpty()
+                              join _image in fileStorages
+                              on _message.ImageId equals _image.Id into joinedImageMessages
+                              from _joinedImageMessage in joinedImageMessages.DefaultIfEmpty()
+                              join _audio in fileStorages
+                              on _message.AudioId equals _audio.Id into joinedAudioMessages
+                              from _joinedAudioMessage in joinedAudioMessages.DefaultIfEmpty()
                               select new MessageVm
                               {
-                                  Id = message.Id,
-                                  Content = message.Content,
-                                  ConversationId = message.ConversationId,
-                                  UserId = message.Id,
+                                  Id = _message.Id,
+                                  Content = _message.Content,
+                                  ConversationId = _message.ConversationId,
+                                  UserId = _message.Id,
                                   User = new ConversationUserVm
                                   {
-                                      Avatar = userItem.Avatar,
-                                      FullName = userItem.FullName,
+                                      Avatar = _userItem.Avatar,
+                                      FullName = _userItem.FullName,
                                   },
-                                  CreatedAt = message.CreatedAt,
-                                  UpdatedAt = message.UpdatedAt
+                                  Video = _joinedVideoMessage?.FilePath,
+                                  Image = _joinedImageMessage?.FilePath,
+                                  Audio = _joinedAudioMessage?.FilePath,
+                                  CreatedAt = _message.CreatedAt,
+                                  UpdatedAt = _message.UpdatedAt
                               }).ToList();
 
 

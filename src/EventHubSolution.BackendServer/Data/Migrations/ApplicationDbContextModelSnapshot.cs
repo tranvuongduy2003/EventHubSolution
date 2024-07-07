@@ -17,7 +17,7 @@ namespace EventHubSolution.BackendServer.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.3")
+                .HasAnnotation("ProductVersion", "8.0.6")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -38,6 +38,9 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("EventId")
+                        .HasColumnType("varchar(50)");
+
                     b.Property<string>("IconImageId")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -52,6 +55,10 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("IconImageId");
 
                     b.ToTable("Categories");
                 });
@@ -85,6 +92,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("CommandId", "FunctionId");
+
+                    b.HasIndex("FunctionId");
 
                     b.ToTable("CommandInFunctions");
                 });
@@ -123,6 +132,12 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("HostId");
+
+                    b.HasIndex("UserId");
+
                     b.ToTable("Conversations");
                 });
 
@@ -137,6 +152,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("EmailContentId", "AttachmentId");
+
+                    b.HasIndex("AttachmentId");
 
                     b.ToTable("EmailAttachments");
                 });
@@ -159,6 +176,9 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
 
                     b.ToTable("EmailContents");
                 });
@@ -193,6 +213,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EmailContentId");
 
                     b.ToTable("EmailLoggers");
                 });
@@ -271,6 +293,10 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CoverImageId");
+
+                    b.HasIndex("CreatorId");
+
                     b.ToTable("Events");
                 });
 
@@ -285,6 +311,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("CategoryId", "EventId");
+
+                    b.HasIndex("EventId");
 
                     b.ToTable("EventCategories");
                 });
@@ -309,6 +337,10 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("ImageId");
+
                     b.ToTable("EventSubImages");
                 });
 
@@ -323,6 +355,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("UserId", "EventId");
+
+                    b.HasIndex("EventId");
 
                     b.ToTable("FavouriteEvents");
                 });
@@ -394,6 +428,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ParentId");
+
                     b.ToTable("Functions");
                 });
 
@@ -418,6 +454,10 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("InviterId", "InvitedId", "EventId");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("InvitedId");
 
                     b.ToTable("Invitations");
                 });
@@ -452,6 +492,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("LabelId", "EventId");
 
+                    b.HasIndex("EventId");
+
                     b.ToTable("LabelInEvents");
                 });
 
@@ -467,6 +509,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("LabelId", "UserId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("LabelInUsers");
                 });
 
@@ -476,6 +520,10 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(50)
                         .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("AudioId")
+                        .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("Content")
@@ -488,6 +536,11 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("ImageId")
                         .HasMaxLength(50)
@@ -506,6 +559,18 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AudioId");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("ImageId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VideoId");
 
                     b.ToTable("Messages");
                 });
@@ -571,6 +636,12 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserPaymentMethodId");
+
                     b.ToTable("Payments");
                 });
 
@@ -618,6 +689,14 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("TicketTypeId");
+
+                    b.HasIndex("UserId");
+
                     b.ToTable("PaymentItems");
                 });
 
@@ -640,6 +719,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("MethodLogoId");
+
                     b.ToTable("PaymentMethods");
                 });
 
@@ -658,6 +739,10 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("FunctionId", "RoleId", "CommandId");
+
+                    b.HasIndex("CommandId");
+
+                    b.HasIndex("RoleId");
 
                     b.ToTable("Permissions");
                 });
@@ -681,6 +766,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("nvarchar(1000)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
 
                     b.ToTable("Reasons");
                 });
@@ -717,6 +804,10 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Reviews");
                 });
@@ -780,6 +871,14 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("TicketTypeId");
+
+                    b.HasIndex("UserId");
+
                     b.ToTable("Tickets");
                 });
 
@@ -811,6 +910,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EventId");
 
                     b.ToTable("TicketTypes");
                 });
@@ -910,6 +1011,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AvatarId");
+
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
 
@@ -932,6 +1035,8 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("FollowerId", "FollowedId");
+
+                    b.HasIndex("FollowedId");
 
                     b.ToTable("UserFollowers");
                 });
@@ -969,6 +1074,12 @@ namespace EventHubSolution.BackendServer.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("MethodId");
+
+                    b.HasIndex("PaymentAccountQRCodeId");
+
+                    b.HasIndex("UserId");
+
                     b.ToTable("UserPaymentMethods");
                 });
 
@@ -982,6 +1093,11 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Discriminator")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("nvarchar(13)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
@@ -999,6 +1115,10 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
                     b.ToTable("AspNetRoles", (string)null);
+
+                    b.HasDiscriminator<string>("Discriminator").HasValue("IdentityRole");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -1107,6 +1227,489 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Role", b =>
+                {
+                    b.HasBaseType("Microsoft.AspNetCore.Identity.IdentityRole");
+
+                    b.HasDiscriminator().HasValue("Role");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Category", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", null)
+                        .WithMany("Categories")
+                        .HasForeignKey("EventId");
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "IconImage")
+                        .WithMany()
+                        .HasForeignKey("IconImageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("IconImage");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.CommandInFunction", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Command", "Command")
+                        .WithMany("CommandInFunctions")
+                        .HasForeignKey("CommandId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Function", "Function")
+                        .WithMany("CommandInFunctions")
+                        .HasForeignKey("FunctionId")
+                        .IsRequired();
+
+                    b.Navigation("Command");
+
+                    b.Navigation("Function");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Conversation", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("Conversations")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "Host")
+                        .WithMany("HostConversations")
+                        .HasForeignKey("HostId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("UserConversations")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Host");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.EmailAttachment", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "Attachment")
+                        .WithMany()
+                        .HasForeignKey("AttachmentId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.EmailContent", "EmailContent")
+                        .WithMany("EmailAttachments")
+                        .HasForeignKey("EmailContentId")
+                        .IsRequired();
+
+                    b.Navigation("Attachment");
+
+                    b.Navigation("EmailContent");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.EmailContent", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithOne("EmailContent")
+                        .HasForeignKey("EventHubSolution.BackendServer.Data.Entities.EmailContent", "EventId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.EmailLogger", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.EmailContent", "EmailContent")
+                        .WithMany("EmailLoggers")
+                        .HasForeignKey("EmailContentId")
+                        .IsRequired();
+
+                    b.Navigation("EmailContent");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Event", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "CoverImage")
+                        .WithMany()
+                        .HasForeignKey("CoverImageId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "Creator")
+                        .WithMany("Events")
+                        .HasForeignKey("CreatorId")
+                        .IsRequired();
+
+                    b.Navigation("CoverImage");
+
+                    b.Navigation("Creator");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.EventCategory", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Category", "Category")
+                        .WithMany("EventCategories")
+                        .HasForeignKey("CategoryId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("EventCategories")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.EventSubImage", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("EventSubImages")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "Image")
+                        .WithMany()
+                        .HasForeignKey("ImageId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Image");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.FavouriteEvent", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("FavouriteEvents")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("FavouriteEvents")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Function", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Function", "Parent")
+                        .WithMany()
+                        .HasForeignKey("ParentId");
+
+                    b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Invitation", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("Invitations")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "Invited")
+                        .WithMany("Inviteds")
+                        .HasForeignKey("InvitedId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "Inviter")
+                        .WithMany("Inviters")
+                        .HasForeignKey("InviterId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Invited");
+
+                    b.Navigation("Inviter");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.LabelInEvent", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("LabelInEvents")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Label", "Label")
+                        .WithMany("LabelInEvents")
+                        .HasForeignKey("LabelId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Label");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.LabelInUser", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Label", "Label")
+                        .WithMany("LabelInUsers")
+                        .HasForeignKey("LabelId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("LabelInUsers")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.Navigation("Label");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Message", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "Audio")
+                        .WithMany()
+                        .HasForeignKey("AudioId");
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("Messages")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "Image")
+                        .WithMany()
+                        .HasForeignKey("ImageId");
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("Messages")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "Video")
+                        .WithMany()
+                        .HasForeignKey("VideoId");
+
+                    b.Navigation("Audio");
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Image");
+
+                    b.Navigation("User");
+
+                    b.Navigation("Video");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Payment", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("Payments")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("Payments")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.UserPaymentMethod", "UserPaymentMethod")
+                        .WithMany("Payments")
+                        .HasForeignKey("UserPaymentMethodId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+
+                    b.Navigation("UserPaymentMethod");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.PaymentItem", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("PaymentItems")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Payment", "Payment")
+                        .WithMany("PaymentItems")
+                        .HasForeignKey("PaymentId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.TicketType", "TicketType")
+                        .WithMany("PaymentItems")
+                        .HasForeignKey("TicketTypeId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("PaymentItems")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Payment");
+
+                    b.Navigation("TicketType");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.PaymentMethod", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "MethodLogo")
+                        .WithMany()
+                        .HasForeignKey("MethodLogoId")
+                        .IsRequired();
+
+                    b.Navigation("MethodLogo");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Permission", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Command", "Command")
+                        .WithMany("Permissions")
+                        .HasForeignKey("CommandId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Function", "Function")
+                        .WithMany("Permissions")
+                        .HasForeignKey("FunctionId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Role", "Role")
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .IsRequired();
+
+                    b.Navigation("Command");
+
+                    b.Navigation("Function");
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Reason", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("Reasons")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Review", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("Reviews")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("Reviews")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Ticket", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("Tickets")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Payment", "Payment")
+                        .WithMany("Tickets")
+                        .HasForeignKey("PaymentId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.TicketType", "TicketType")
+                        .WithMany("Tickets")
+                        .HasForeignKey("TicketTypeId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("Tickets")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Payment");
+
+                    b.Navigation("TicketType");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.TicketType", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.Event", "Event")
+                        .WithMany("TicketTypes")
+                        .HasForeignKey("EventId")
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.User", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "Avatar")
+                        .WithMany()
+                        .HasForeignKey("AvatarId");
+
+                    b.Navigation("Avatar");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.UserFollower", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "Followed")
+                        .WithMany("Followeds")
+                        .HasForeignKey("FollowedId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "Follower")
+                        .WithMany("Followers")
+                        .HasForeignKey("FollowerId")
+                        .IsRequired();
+
+                    b.Navigation("Followed");
+
+                    b.Navigation("Follower");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.UserPaymentMethod", b =>
+                {
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.PaymentMethod", "Method")
+                        .WithMany("UserPaymentMethods")
+                        .HasForeignKey("MethodId")
+                        .IsRequired();
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.FileStorage", "PaymentAccountQRCode")
+                        .WithMany()
+                        .HasForeignKey("PaymentAccountQRCodeId");
+
+                    b.HasOne("EventHubSolution.BackendServer.Data.Entities.User", "User")
+                        .WithMany("UserPaymentMethods")
+                        .HasForeignKey("UserId")
+                        .IsRequired();
+
+                    b.Navigation("Method");
+
+                    b.Navigation("PaymentAccountQRCode");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1156,6 +1759,139 @@ namespace EventHubSolution.BackendServer.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Category", b =>
+                {
+                    b.Navigation("EventCategories");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Command", b =>
+                {
+                    b.Navigation("CommandInFunctions");
+
+                    b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Conversation", b =>
+                {
+                    b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.EmailContent", b =>
+                {
+                    b.Navigation("EmailAttachments");
+
+                    b.Navigation("EmailLoggers");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Event", b =>
+                {
+                    b.Navigation("Categories");
+
+                    b.Navigation("Conversations");
+
+                    b.Navigation("EmailContent");
+
+                    b.Navigation("EventCategories");
+
+                    b.Navigation("EventSubImages");
+
+                    b.Navigation("FavouriteEvents");
+
+                    b.Navigation("Invitations");
+
+                    b.Navigation("LabelInEvents");
+
+                    b.Navigation("Messages");
+
+                    b.Navigation("PaymentItems");
+
+                    b.Navigation("Payments");
+
+                    b.Navigation("Reasons");
+
+                    b.Navigation("Reviews");
+
+                    b.Navigation("TicketTypes");
+
+                    b.Navigation("Tickets");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Function", b =>
+                {
+                    b.Navigation("CommandInFunctions");
+
+                    b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Label", b =>
+                {
+                    b.Navigation("LabelInEvents");
+
+                    b.Navigation("LabelInUsers");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Payment", b =>
+                {
+                    b.Navigation("PaymentItems");
+
+                    b.Navigation("Tickets");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.PaymentMethod", b =>
+                {
+                    b.Navigation("UserPaymentMethods");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.TicketType", b =>
+                {
+                    b.Navigation("PaymentItems");
+
+                    b.Navigation("Tickets");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.User", b =>
+                {
+                    b.Navigation("Events");
+
+                    b.Navigation("FavouriteEvents");
+
+                    b.Navigation("Followeds");
+
+                    b.Navigation("Followers");
+
+                    b.Navigation("HostConversations");
+
+                    b.Navigation("Inviteds");
+
+                    b.Navigation("Inviters");
+
+                    b.Navigation("LabelInUsers");
+
+                    b.Navigation("Messages");
+
+                    b.Navigation("PaymentItems");
+
+                    b.Navigation("Payments");
+
+                    b.Navigation("Reviews");
+
+                    b.Navigation("Tickets");
+
+                    b.Navigation("UserConversations");
+
+                    b.Navigation("UserPaymentMethods");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.UserPaymentMethod", b =>
+                {
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("EventHubSolution.BackendServer.Data.Entities.Role", b =>
+                {
+                    b.Navigation("Permissions");
                 });
 #pragma warning restore 612, 618
         }

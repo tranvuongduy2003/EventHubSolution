@@ -3,8 +3,10 @@ using EventHubSolution.BackendServer.Services;
 using EventHubSolution.ViewModels.Constants;
 using EventHubSolution.ViewModels.Contents;
 using EventHubSolution.ViewModels.General;
+using EventHubSolution.ViewModels.Systems;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using System.ComponentModel.DataAnnotations;
 
 namespace EventHubSolution.BackendServer.Controllers
 {
@@ -21,11 +23,11 @@ namespace EventHubSolution.BackendServer.Controllers
 
         [HttpPost]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> PostFile(IFormFile file)
+        public async Task<IActionResult> PostFile([FromQuery][Required] string container, [FromForm] FileUploadRequest request)
         {
-            var azureFile = await _fileStorage.SaveFileToFileStorageAsync(file, "test");
+            var azureFile = await _fileStorage.SaveFileToFileStorageAsync(request.File, container);
 
-            return Ok(azureFile);
+            return Ok(new ApiOkResponse(azureFile));
         }
 
         [HttpGet]
@@ -72,7 +74,7 @@ namespace EventHubSolution.BackendServer.Controllers
             if (file == null)
                 return NotFound();
 
-            return Ok(file);
+            return Ok(new ApiOkResponse(file));
         }
 
         [HttpDelete("{id}")]
@@ -88,7 +90,7 @@ namespace EventHubSolution.BackendServer.Controllers
             if (deletedFile == null)
                 return BadRequest();
 
-            return Ok(deletedFile);
+            return Ok(new ApiOkResponse(deletedFile));
         }
     }
 }

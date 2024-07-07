@@ -25,6 +25,10 @@ namespace EventHubSolution.BackendServer.Data.Entities
         [Column(TypeName = "varchar(50)")]
         public string? VideoId { get; set; }
 
+        [MaxLength(50)]
+        [Column(TypeName = "varchar(50)")]
+        public string? AudioId { get; set; }
+
         [Required]
         [MaxLength(50)]
         [Column(TypeName = "varchar(50)")]
@@ -60,5 +64,8 @@ namespace EventHubSolution.BackendServer.Data.Entities
 
         [ForeignKey("VideoId")]
         public virtual FileStorage? Video { get; set; } = null!;
+
+        [ForeignKey("AudioId")]
+        public virtual FileStorage? Audio { get; set; } = null!;
     }
 }
